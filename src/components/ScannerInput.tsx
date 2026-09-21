@@ -13,8 +13,12 @@ import {
   ScanLine,
   Clock,
   FastForward,
+  ListOrdered,
+  Copy,
+  Check,
+  Package,
 } from 'lucide-react';
-import { ExpeditionId, PackageCondition, ScanFeedback } from '../types';
+import { ExpeditionId, PackageCondition, ScanFeedback, ReturnItem } from '../types';
 import {
   detectExpedition,
   getExpedition,
@@ -43,6 +47,7 @@ interface ScannerInputProps {
   onToggleSound: () => void;
   voiceEnabled: boolean;
   onToggleVoice: () => void;
+  items?: ReturnItem[];
 }
 
 export const ScannerInput: React.FC<ScannerInputProps> = ({
@@ -54,22 +59,30 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
   onToggleSound,
   voiceEnabled,
   onToggleVoice,
+  items = [],
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedCondition, setSelectedCondition] = useState<PackageCondition>('baik');
   const [customNote, setCustomNote] = useState('');
   const [feedback, setFeedback] = useState<(ScanFeedback & { isKotak?: boolean }) | null>(null);
   const [autoFocusEnabled, setAutoFocusEnabled] = useState(true);
+  const [copiedResi, setCopiedResi] = useState<string | null>(null);
 
-  // 3-Second Loading Cooldown State
+  // 1-Second Loading Cooldown State
   const [isLoadingCooldown, setIsLoadingCooldown] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number>(3.0);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(1.0);
   const [cooldownTrackingNumber, setCooldownTrackingNumber] = useState<string>('');
   const isCooldownRef = useRef(false);
   const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleCopyResi = (resi: string) => {
+    navigator.clipboard.writeText(resi);
+    setCopiedResi(resi);
+    setTimeout(() => setCopiedResi(null), 1500);
+  };
 
   // Keep input focused so barcode scanner gun works uninterrupted
   useEffect(() => {
@@ -126,12 +139,10 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
   };
 
   const handleProcessScan = (rawResi: string) => {
-    // If currently loading cooldown, ignore rapid subsequent triggers from scanner
     if (isCooldownRef.current) {
       return;
     }
 
-    // Intelligently parse raw input, whether it is pure tracking number, URL, JSON, or delimited QR/DataMatrix
     const extracted = extractTrackingNumberFromBarcodeKotak(rawResi);
     const cleaned = extracted.trackingNumber;
 
@@ -196,14 +207,14 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
     // Reset condition back to 'baik' after scan if was set to special condition
     setSelectedCondition('baik');
 
-    // START 3-SECOND LOADING COOLDOWN FOR BARCODE READER
+    // START 1-SECOND LOADING COOLDOWN FOR BARCODE READER
     isCooldownRef.current = true;
     setIsLoadingCooldown(true);
-    setCooldownRemaining(3.0);
+    setCooldownRemaining(1.0);
     setCooldownTrackingNumber(cleaned);
 
     const startTime = Date.now();
-    const DURATION = 3000;
+    const DURATION = 1000; // 1 second
 
     if (cooldownIntervalRef.current) {
       clearInterval(cooldownIntervalRef.current);
@@ -224,7 +235,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
           inputRef.current?.focus();
         }, 20);
       }
-    }, 50);
+    }, 40);
 
     // Clear feedback after 4.5 seconds
     feedbackTimeoutRef.current = setTimeout(() => {
@@ -259,7 +270,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               {isLoadingCooldown ? (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
                   <Clock className="w-3 h-3 mr-1 animate-spin" />
-                  Loading {Math.ceil(cooldownRemaining)}s ({cooldownRemaining.toFixed(1)}s)
+                  Loading {cooldownRemaining.toFixed(1)}s
                 </span>
               ) : (
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
@@ -270,7 +281,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
             </h2>
             <p className="text-xs text-slate-400">
               Mendukung tembak <strong className="text-slate-200">Barcode Kotak (QR Code / DataMatrix)</strong> maupun{' '}
-              <strong className="text-slate-200">Barcode Garis 1D</strong> dengan jeda loading 3 detik setelah scan.
+              <strong className="text-slate-200">Barcode Garis 1D</strong> dengan jeda loading 1 detik setelah scan.
             </p>
           </div>
         </div>
@@ -311,7 +322,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
             className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
           >
             <Camera className="w-4 h-4" />
-            <span>Scan Kamera (Jeda 3s)</span>
+            <span>Scan Kamera (Jeda 1s)</span>
           </button>
 
           <button
@@ -325,16 +336,16 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
         </div>
       </div>
 
-      {/* 3-Second Loading Banner Notice */}
+      {/* 1-Second Loading Banner Notice */}
       {isLoadingCooldown && (
-        <div className="mb-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 animate-in fade-in duration-150">
+        <div className="mb-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 animate-in fade-in duration-100">
           <div className="flex items-center gap-2">
             <Clock className="w-4 h-4 animate-spin text-amber-400 shrink-0" />
             <div>
-              <span className="font-bold text-white">Pembaca barcode loading 3 detik:</span>{' '}
+              <span className="font-bold text-white">Pembaca barcode loading 1 detik:</span>{' '}
               <span>
                 Resi <strong className="font-mono text-amber-200">{cooldownTrackingNumber}</strong> berhasil ditembak.
-                Jeda aman untuk memindahkan paket & cegah scan dobel ({cooldownRemaining.toFixed(1)}s tersisa).
+                Jeda aman anti double-scan ({cooldownRemaining.toFixed(1)}s tersisa).
               </span>
             </div>
           </div>
@@ -364,12 +375,12 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               : 'border-amber-500/50 bg-slate-900 focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-500/20'
           }`}
         >
-          {/* Animated 3-Second Cooldown Progress Bar */}
+          {/* Animated 1-Second Cooldown Progress Bar */}
           {isLoadingCooldown && (
             <div className="h-1.5 w-full bg-slate-800 overflow-hidden">
               <div
-                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 transition-all duration-75 ease-linear"
-                style={{ width: `${((3.0 - cooldownRemaining) / 3.0) * 100}%` }}
+                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 transition-all duration-40 ease-linear"
+                style={{ width: `${((1.0 - cooldownRemaining) / 1.0) * 100}%` }}
               />
             </div>
           )}
@@ -390,7 +401,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               disabled={isLoadingCooldown}
               placeholder={
                 isLoadingCooldown
-                  ? `⏳ Loading 3 detik... Menyiapkan scanner (${cooldownRemaining.toFixed(1)}s)`
+                  ? `⏳ Loading 1 detik... Menyiapkan scanner (${cooldownRemaining.toFixed(1)}s)`
                   : 'Tembak barcode kotak (QR)/garis atau ketik resi...'
               }
               autoComplete="off"
@@ -410,7 +421,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
                     type="button"
                     onClick={handleSkipCooldown}
                     className="px-2 py-2 text-xs text-slate-300 hover:text-white bg-slate-800 rounded border border-slate-700 cursor-pointer"
-                    title="Lewati jeda loading 3 detik"
+                    title="Lewati jeda loading 1 detik"
                   >
                     Skip
                   </button>
@@ -620,11 +631,11 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
         )}
       </div>
 
-      {/* Auto-focus helper footer */}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 flex-wrap gap-2">
+      {/* Auto-focus helper banner */}
+      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 flex-wrap gap-2 border-b border-slate-700/60 pb-3">
         <span className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          Input otomatis fokus — jeda 3 detik mencegah double-scan saat memindahkan paket
+          Input otomatis fokus — jeda 1 detik mencegah double-scan saat memindahkan paket
         </span>
         <button
           type="button"
@@ -636,6 +647,139 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
         >
           {autoFocusEnabled ? 'Fokus Otomatis Aktif' : 'Fokus Otomatis Mati'}
         </button>
+      </div>
+
+      {/* LIST HASIL SCAN RESI (SHOWING SCANNED TRACKING NUMBERS DIRECTLY IN SCANNER) */}
+      <div className="mt-4 pt-1">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <ListOrdered className="w-4 h-4 text-emerald-400" />
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>List Hasil Scan Resi Sesi Ini</span>
+              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {items.length} Resi
+              </span>
+            </h3>
+          </div>
+          <span className="text-xs text-slate-400">Resi terbaru di urutan paling atas</span>
+        </div>
+
+        {items.length === 0 ? (
+          <div className="p-6 text-center rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-slate-400">
+            <Package className="w-8 h-8 mx-auto text-slate-600 mb-2" />
+            <p className="text-sm font-medium text-slate-300">Belum ada resi yang ditembak</p>
+            <p className="text-xs text-slate-500 mt-1">
+              Tembak barcode kotak (QR)/garis atau ketik nomor resi di atas untuk mulai mencatat paket retur.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
+            {items.map((item, index) => {
+              const detected = detectExpedition(item.trackingNumber);
+              const expInfo = getExpedition(detected);
+              const isFirst = index === 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition ${
+                    isFirst
+                      ? 'bg-slate-900/90 border-emerald-500/60 shadow-md ring-1 ring-emerald-500/40'
+                      : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-mono font-bold text-xs shrink-0">
+                      #{items.length - index}
+                    </span>
+
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-mono font-bold text-white tracking-wider text-sm sm:text-base">
+                          {item.trackingNumber}
+                        </span>
+
+                        {isFirst && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                            Baru Saja
+                          </span>
+                        )}
+
+                        {item.barcodeType === '2d_kotak' && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                            Kotak 2D (QR)
+                          </span>
+                        )}
+
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-bold border"
+                          style={{
+                            backgroundColor: `${expInfo.color}15`,
+                            color: expInfo.color,
+                            borderColor: `${expInfo.color}40`,
+                          }}
+                        >
+                          {expInfo.name} ({expInfo.code})
+                        </span>
+
+                        {item.isMismatch && (
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" />
+                            Beda Ekspedisi
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
+                        <span className="text-slate-300 font-medium">
+                          Kondisi: {CONDITION_LABELS[item.condition]?.label || 'Baik'}
+                        </span>
+                        <span>•</span>
+                        <span>
+                          Pukul{' '}
+                          {new Date(item.scannedAt).toLocaleTimeString('id-ID', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                          })}
+                        </span>
+                        {item.note && (
+                          <>
+                            <span>•</span>
+                            <span className="text-amber-300/90 italic truncate max-w-xs">
+                              Catatan: {item.note}
+                            </span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => handleCopyResi(item.trackingNumber)}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
+                      title="Salin nomor resi"
+                    >
+                      {copiedResi === item.trackingNumber ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span className="text-emerald-400 font-bold">Tersalin</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Salin</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -422,6 +422,7 @@ export default function App() {
         isOpen={isCameraScanOpen}
         onClose={() => setIsCameraScanOpen(false)}
         onScanResult={handleCameraScanResult}
+        sessionItems={activeSession?.items || []}
       />
 
       {printSession && (

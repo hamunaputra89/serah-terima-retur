@@ -40,14 +40,14 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
-          {/* Jeda Loading 3 Detik */}
+          {/* Jeda Loading 1 Detik */}
           <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
             <h4 className="font-bold text-amber-300 flex items-center gap-2 text-sm">
               <Clock className="w-4 h-4 text-amber-400" />
-              Jeda Loading 3 Detik Setelah Menembak Resi
+              Jeda Loading 1 Detik Setelah Menembak Resi
             </h4>
             <p className="text-slate-300 leading-relaxed">
-              Setelah sebuah resi berhasil ditembak, pembaca barcode dan kamera akan melakukan <strong>loading jeda selama 3 detik</strong> dengan indikator hitung mundur visual. Jeda ini dirancang untuk mencegah tembakan ganda (double-scan) serta memberi waktu bagi operator gudang untuk memindahkan paket ke tumpukan sebelum menembak resi berikutnya. Lonceng siap akan berbunyi saat scanner siap kembali, atau Anda dapat menekan tombol <em>"Lewati Jeda"</em> jika ingin memindai lebih cepat.
+              Setelah sebuah resi berhasil ditembak, pembaca barcode dan kamera akan melakukan <strong>loading jeda cepat selama 1 detik</strong> dengan indikator hitung mundur visual dan list hasil scan yang langsung terbarui. Jeda ini dirancang untuk mencegah tembakan ganda (double-scan) serta memberi waktu bagi operator gudang sebelum menembak resi berikutnya. Lonceng siap akan berbunyi saat scanner siap kembali, atau Anda dapat menekan tombol <em>"Lewati Jeda"</em> jika ingin memindai lebih cepat.
             </p>
           </div>
 

@@ -308,6 +308,7 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
         onToggleSound={onToggleSound}
         voiceEnabled={voiceEnabled}
         onToggleVoice={onToggleVoice}
+        items={session.items}
       />
 
       {/* Live Stat Counters & Filter Controls */}
