@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, HelpCircle, Barcode, Volume2, AlertTriangle, Printer, CheckCircle2, Clock } from 'lucide-react';
+import { X, HelpCircle, Barcode, Volume2, AlertTriangle, Printer, CheckCircle2, Zap } from 'lucide-react';
 
 interface GuideModalProps {
   isOpen: boolean;
@@ -40,14 +40,14 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
             </p>
           </div>
 
-          {/* Jeda Loading 1 Detik */}
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
-            <h4 className="font-bold text-amber-300 flex items-center gap-2 text-sm">
-              <Clock className="w-4 h-4 text-amber-400" />
-              Jeda Loading 1 Detik Setelah Menembak Resi
+          {/* Pemindaian Cepat Tanpa Jeda */}
+          <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/30 space-y-1.5">
+            <h4 className="font-bold text-emerald-300 flex items-center gap-2 text-sm">
+              <Zap className="w-4 h-4 text-emerald-400" />
+              Pemindaian Instan & Cepat (Tanpa Jeda)
             </h4>
             <p className="text-slate-300 leading-relaxed">
-              Setelah sebuah resi berhasil ditembak, pembaca barcode dan kamera akan melakukan <strong>loading jeda cepat selama 1 detik</strong> dengan indikator hitung mundur visual dan list hasil scan yang langsung terbarui. Jeda ini dirancang untuk mencegah tembakan ganda (double-scan) serta memberi waktu bagi operator gudang sebelum menembak resi berikutnya. Lonceng siap akan berbunyi saat scanner siap kembali, atau Anda dapat menekan tombol <em>"Lewati Jeda"</em> jika ingin memindai lebih cepat.
+              Scanner bekerja secara instan tanpa jeda loading. Begitu nomor resi ditembak dengan barcode scanner atau dibidik kamera HP, sistem langsung mencatat paket retur secara seketika dan kursor otomatis siap menerima tembakan paket berikutnya secara beruntun.
             </p>
           </div>
 

@@ -60,7 +60,7 @@ export function usePWAInstall() {
         return true;
       }
     } catch (err) {
-      console.error('PWA install error:', err);
+      console.warn('PWA install notification:', err);
     }
     return false;
   };

@@ -96,7 +96,7 @@ export function loadSessions(): HandoverSession[] {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [INITIAL_SAMPLE_SESSION];
   } catch (e) {
-    console.error('Failed to load sessions', e);
+    console.warn('Failed to load sessions', e);
     return [INITIAL_SAMPLE_SESSION];
   }
 }
@@ -106,7 +106,7 @@ export function saveSessions(sessions: HandoverSession[]) {
   try {
     localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(sessions));
   } catch (e) {
-    console.error('Failed to save sessions', e);
+    console.warn('Failed to save sessions', e);
   }
 }
 
@@ -128,7 +128,7 @@ export function setActiveSessionId(id: string | null) {
       localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
     }
   } catch (e) {
-    console.error('Failed to set active session ID', e);
+    console.warn('Failed to set active session ID', e);
   }
 }
 
@@ -148,7 +148,7 @@ export function saveSettings(settings: AppSettings) {
   try {
     localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify(settings));
   } catch (e) {
-    console.error('Failed to save settings', e);
+    console.warn('Failed to save settings', e);
   }
 }
 

@@ -5,20 +5,16 @@ import {
   FileSpreadsheet,
   Copy,
   Check,
-  Building,
-  Truck,
-  UserCheck,
-  Calendar,
-  Layers,
-  AlertCircle,
-  FileText,
   Minimize2,
   Maximize2,
-  Sliders,
   CheckCircle2,
+  ExternalLink,
+  RefreshCw,
+  Info,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem } from '../types';
 import { getExpedition, CONDITION_LABELS } from '../utils/expeditions';
+import { executeSmartPrint, openPrintInNewTab } from '../utils/printer';
 
 interface PrintManifestModalProps {
   isOpen: boolean;
@@ -31,11 +27,13 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   onClose,
   session,
 }) => {
-  // Default to 1-page A4 format as requested
+  // Default to 1-page A4 format
   const [printLayout, setPrintLayout] = useState<'a4_1page' | 'a4_full' | 'thermal'>('a4_1page');
   const [density, setDensity] = useState<'normal' | 'compact' | 'ultra'>('compact');
   const [columnCount, setColumnCount] = useState<'auto' | '1' | '2' | '3'>('auto');
   const [copied, setCopied] = useState(false);
+  const [isPrinting, setIsPrinting] = useState(false);
+  const [printNotice, setPrintNotice] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -66,8 +64,45 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
     return chunks;
   };
 
-  const handlePrint = () => {
-    window.print();
+  const getPrintTargetId = () => {
+    return printLayout === 'thermal' ? 'printable-bast-thermal' : 'printable-bast-a4';
+  };
+
+  const handlePrint = async () => {
+    setIsPrinting(true);
+    setPrintNotice('Mempersiapkan dialog cetak...');
+
+    try {
+      const targetId = getPrintTargetId();
+      const result = await executeSmartPrint({
+        elementId: targetId,
+        title: `BAST Retur - ${session.bastNumber}`,
+        layout: printLayout,
+      });
+
+      if (result === 'new_tab') {
+        setPrintNotice('Halaman cetak dibuka di tab baru untuk menghindari batasan browser');
+      } else if (result === 'failed') {
+        setPrintNotice('Gunakan tombol "Buka Tab Cetak" jika dialog cetak terhalang');
+      } else {
+        setPrintNotice(null);
+      }
+    } catch (e) {
+      console.warn('Smart print notice:', e);
+      handleOpenNewTab();
+    } finally {
+      setIsPrinting(false);
+      setTimeout(() => setPrintNotice(null), 4000);
+    }
+  };
+
+  const handleOpenNewTab = () => {
+    const targetId = getPrintTargetId();
+    openPrintInNewTab({
+      elementId: targetId,
+      title: `BAST Retur - ${session.bastNumber}`,
+      layout: printLayout,
+    });
   };
 
   const handleCopyResiList = () => {
@@ -106,27 +141,27 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
       tableText: 'text-[11px]',
       rowPadding: 'py-1 px-1.5',
       metaText: 'text-xs',
-      signGap: 'h-12',
+      signGap: 'h-10',
     },
     compact: {
       tableText: 'text-[10px]',
       rowPadding: 'py-0.5 px-1',
       metaText: 'text-[11px]',
-      signGap: 'h-10',
+      signGap: 'h-8',
     },
     ultra: {
       tableText: 'text-[9px]',
       rowPadding: 'py-0.5 px-0.5',
       metaText: 'text-[10px]',
-      signGap: 'h-8',
+      signGap: 'h-6',
     },
   }[density];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150 print:static print:bg-white print:p-0 print:m-0 print:overflow-visible print:block print:w-full print:h-auto">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden print:w-full print:max-w-none print:max-h-none print:bg-white print:border-none print:shadow-none print:rounded-none print:overflow-visible print:block print:p-0 print:m-0">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/85 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-150 print-modal-wrapper print:static print:bg-white print:p-0 print:m-0 print:overflow-visible print:block print:w-full print:h-auto">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-5xl max-h-[94vh] flex flex-col shadow-2xl overflow-hidden print-modal-container print:w-full print:max-w-none print:max-h-none print:bg-white print:border-none print:shadow-none print:rounded-none print:overflow-visible print:block print:p-0 print:m-0">
         {/* Modal Header & Controls (Hidden in Print) */}
-        <div className="print:hidden p-3.5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3">
+        <div className="print:hidden p-3.5 border-b border-slate-800 bg-slate-950 flex flex-wrap items-center justify-between gap-3 shrink-0">
           <div>
             <h3 className="font-bold text-slate-100 text-sm sm:text-base flex items-center gap-2">
               <Printer className="w-5 h-5 text-amber-400" />
@@ -143,7 +178,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPrintLayout('a4_1page')}
-                className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 cursor-pointer ${
                   printLayout === 'a4_1page'
                     ? 'bg-amber-500 text-slate-950 font-bold shadow'
                     : 'text-slate-300 hover:text-white'
@@ -155,7 +190,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPrintLayout('a4_full')}
-                className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-md font-medium transition flex items-center gap-1.5 cursor-pointer ${
                   printLayout === 'a4_full'
                     ? 'bg-amber-500 text-slate-950 font-bold shadow'
                     : 'text-slate-300 hover:text-white'
@@ -167,7 +202,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               <button
                 type="button"
                 onClick={() => setPrintLayout('thermal')}
-                className={`px-3 py-1.5 rounded-md font-medium transition ${
+                className={`px-3 py-1.5 rounded-md font-medium transition cursor-pointer ${
                   printLayout === 'thermal'
                     ? 'bg-amber-500 text-slate-950 font-bold shadow'
                     : 'text-slate-300 hover:text-white'
@@ -180,7 +215,8 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
             <button
               type="button"
               onClick={handleCopyResiList}
-              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition"
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              title="Salin semua nomor resi ke clipboard"
             >
               {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
               <span>{copied ? 'Tersalin!' : 'Copy Resi'}</span>
@@ -189,25 +225,43 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition"
+              className="px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              title="Unduh file Excel / CSV"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>CSV</span>
             </button>
 
+            {/* Buka Tab Cetak (Bebas Hambatan Sandboxing) */}
+            <button
+              type="button"
+              onClick={handleOpenNewTab}
+              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              title="Buka tampilan cetak bersih di tab baru (bebas batasan iframe)"
+            >
+              <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Buka Tab Cetak</span>
+            </button>
+
+            {/* Tombol Cetak Utama */}
             <button
               type="button"
               onClick={handlePrint}
-              className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow transition cursor-pointer"
+              disabled={isPrinting}
+              className="px-4 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-50 text-slate-950 font-bold text-xs rounded-lg flex items-center gap-1.5 shadow-md transition cursor-pointer"
             >
-              <Printer className="w-4 h-4" />
-              <span>Cetak Sekarang</span>
+              {isPrinting ? (
+                <RefreshCw className="w-4 h-4 animate-spin" />
+              ) : (
+                <Printer className="w-4 h-4" />
+              )}
+              <span>{isPrinting ? 'Mencetak...' : 'Cetak Sekarang'}</span>
             </button>
 
             <button
               type="button"
               onClick={onClose}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -216,25 +270,25 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
         {/* Secondary Subbar: Density and Columns options when in 1-Page mode */}
         {printLayout === 'a4_1page' && (
-          <div className="print:hidden px-4 py-2 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs gap-3">
+          <div className="print:hidden px-4 py-2 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs gap-3 shrink-0">
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-semibold border border-emerald-500/30 text-[11px]">
                 <CheckCircle2 className="w-3.5 h-3.5" />
-                Dijamin Pas 1 Lembar Kertas A4 (Tanpa Halaman Ke-2)
+                Format Pas 1 Halaman A4
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-wrap">
               {/* Density control */}
               <div className="flex items-center gap-1">
-                <span className="text-slate-400">Kerapatan:</span>
+                <span className="text-slate-400 text-[11px]">Kerapatan:</span>
                 <div className="flex bg-slate-800 rounded p-0.5 border border-slate-700">
                   {(['normal', 'compact', 'ultra'] as const).map((mode) => (
                     <button
                       key={mode}
                       type="button"
                       onClick={() => setDensity(mode)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium capitalize transition ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium capitalize transition cursor-pointer ${
                         density === mode ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'
                       }`}
                     >
@@ -246,14 +300,14 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
               {/* Column count */}
               <div className="flex items-center gap-1">
-                <span className="text-slate-400">Kolom Resi:</span>
+                <span className="text-slate-400 text-[11px]">Kolom Resi:</span>
                 <div className="flex bg-slate-800 rounded p-0.5 border border-slate-700">
                   {(['auto', '1', '2', '3'] as const).map((col) => (
                     <button
                       key={col}
                       type="button"
                       onClick={() => setColumnCount(col)}
-                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition ${
+                      className={`px-2 py-0.5 rounded text-[11px] font-medium transition cursor-pointer ${
                         columnCount === col ? 'bg-amber-500 text-slate-950 font-bold' : 'text-slate-300 hover:text-white'
                       }`}
                     >
@@ -266,23 +320,33 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
           </div>
         )}
 
-        {/* Dynamic print @page rule for thermal vs A4 */}
-        <style>
-          {printLayout === 'thermal'
-            ? `@media print { @page { size: 80mm auto !important; margin: 2mm !important; } }`
-            : `@media print { @page { size: A4 portrait !important; margin: 6mm 8mm 6mm 8mm !important; } }`}
-        </style>
+        {/* Print Notice Banner */}
+        {printNotice && (
+          <div className="print:hidden px-4 py-2 bg-indigo-950/80 border-b border-indigo-500/30 text-indigo-200 text-xs flex items-center justify-between gap-2 shrink-0">
+            <div className="flex items-center gap-2">
+              <Info className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>{printNotice}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleOpenNewTab}
+              className="text-[11px] font-bold text-amber-400 hover:underline flex items-center gap-1"
+            >
+              <span>Buka di Tab Baru</span>
+              <ExternalLink className="w-3 h-3" />
+            </button>
+          </div>
+        )}
 
         {/* Printable Sheet Viewport */}
-        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-950 flex justify-center print:bg-white print:p-0 print:m-0 print:overflow-visible print:block print:w-full print:h-auto">
+        <div className="flex-1 overflow-y-auto p-3 sm:p-6 bg-slate-950 flex justify-center print-modal-scroll print:bg-white print:p-0 print:m-0 print:overflow-visible print:block print:w-full print:h-auto">
           {printLayout === 'a4_1page' ? (
             /* ============================================================ */
             /* A4 PAS 1 LEMBAR (EXACT FIT 1 PAGE GUARANTEED)                 */
             /* ============================================================ */
             <div
               id="printable-bast-a4"
-              className="w-full max-w-3xl bg-white text-slate-900 p-6 sm:p-7 rounded-lg shadow-xl border border-slate-200 font-sans print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-none print:w-full print:bg-white print:min-h-0 print:max-h-none flex flex-col justify-between"
-              style={{ minHeight: '260mm', maxHeight: '287mm' }}
+              className="w-full max-w-3xl bg-white text-slate-900 p-6 sm:p-7 rounded-lg shadow-xl border border-slate-200 font-sans print:shadow-none print:border-none print:p-0 print:m-0 print:max-w-none print:w-full print:bg-white print:min-h-0 print:max-h-none print:h-auto flex flex-col justify-between"
             >
               <div>
                 {/* 1. Header Letterhead (Sangat Ringkas & Rapi) */}
@@ -378,7 +442,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                     </span>
                     {effectiveColumns > 1 && (
                       <span className="text-[9px] text-slate-500 font-mono">
-                        (Ditata dalam {effectiveColumns} kolom vertikal agar pas 1 lembar A4)
+                        ({effectiveColumns} kolom vertikal)
                       </span>
                     )}
                   </div>
@@ -457,7 +521,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                 </div>
               </div>
 
-              {/* 5. Bagian Bawah: Pernyataan & Tanda Tangan Dua Belah Pihak (Selalu Menempel di Bagian Bawah Halaman 1) */}
+              {/* 5. Bagian Bawah: Pernyataan & Tanda Tangan Dua Belah Pihak */}
               <div className="pt-2 border-t border-slate-300 mt-2">
                 {/* Pernyataan Sah Ringkas */}
                 <div className="text-[9px] text-slate-600 mb-2 p-1.5 rounded bg-slate-100 border border-slate-200 leading-tight">
@@ -606,17 +670,17 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                 </div>
               </div>
 
-              {/* Full Width Table */}
+              {/* Full Detailed Table */}
               <div className="mb-6">
-                <table className="w-full border-collapse text-xs">
+                <table className="w-full border-collapse border border-slate-300 text-xs">
                   <thead>
-                    <tr className="bg-slate-800 text-white print:bg-slate-100 print:text-black">
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-center w-10 print:text-black">No</th>
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-left print:text-black">Nomor Resi</th>
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-left print:text-black">Ekspedisi</th>
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-center print:text-black">Waktu Scan</th>
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-left print:text-black">Kondisi Fisik</th>
-                      <th className="border border-slate-800 print:border-slate-400 p-1.5 text-left print:text-black">Catatan</th>
+                    <tr className="bg-slate-100 text-slate-800 font-bold">
+                      <th className="border border-slate-300 p-2 text-center w-10">No</th>
+                      <th className="border border-slate-300 p-2 text-left">Nomor Resi / AWB</th>
+                      <th className="border border-slate-300 p-2 text-left w-24">Ekspedisi</th>
+                      <th className="border border-slate-300 p-2 text-left w-32">Waktu Scan</th>
+                      <th className="border border-slate-300 p-2 text-center w-28">Kondisi</th>
+                      <th className="border border-slate-300 p-2 text-left">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -624,19 +688,25 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                       const exp = getExpedition(item.detectedExpedition);
                       const cond = CONDITION_LABELS[item.condition];
                       return (
-                        <tr key={item.id} className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
-                          <td className="border border-slate-300 p-1 text-center font-mono">{idx + 1}</td>
-                          <td className="border border-slate-300 p-1 font-mono font-bold text-slate-900">
+                        <tr
+                          key={item.id}
+                          className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}
+                        >
+                          <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-500">
+                            {idx + 1}
+                          </td>
+                          <td className="border border-slate-300 p-1.5 font-mono font-bold text-slate-900 tracking-wider">
                             {item.trackingNumber}
                           </td>
-                          <td className="border border-slate-300 p-1 font-semibold">{exp.shortName}</td>
-                          <td className="border border-slate-300 p-1 text-center font-mono text-[11px] text-slate-600">
+                          <td className="border border-slate-300 p-1.5 font-medium">{exp.shortName}</td>
+                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[11px]">
                             {new Date(item.scannedAt).toLocaleTimeString('id-ID', {
                               hour: '2-digit',
                               minute: '2-digit',
+                              second: '2-digit',
                             })}
                           </td>
-                          <td className="border border-slate-300 p-1">
+                          <td className="border border-slate-300 p-1.5 text-center">
                             <span
                               className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
                                 item.condition === 'baik'
@@ -647,7 +717,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                               {cond.label}
                             </span>
                           </td>
-                          <td className="border border-slate-300 p-1 text-slate-600 text-[11px]">
+                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[11px]">
                             {item.note || '-'}
                           </td>
                         </tr>

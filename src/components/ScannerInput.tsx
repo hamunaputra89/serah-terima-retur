@@ -10,13 +10,7 @@ import {
   Zap,
   Sparkles,
   QrCode,
-  ScanLine,
-  Clock,
-  FastForward,
-  ListOrdered,
-  Copy,
-  Check,
-  Package,
+  X,
 } from 'lucide-react';
 import { ExpeditionId, PackageCondition, ScanFeedback, ReturnItem } from '../types';
 import {
@@ -29,7 +23,6 @@ import {
   playSuccessBeep,
   playDuplicateWarning,
   playMismatchWarning,
-  playReadyChime,
   speakText,
 } from '../utils/audio';
 
@@ -59,37 +52,22 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
   onToggleSound,
   voiceEnabled,
   onToggleVoice,
-  items = [],
 }) => {
   const [inputValue, setInputValue] = useState('');
   const [selectedCondition, setSelectedCondition] = useState<PackageCondition>('baik');
   const [customNote, setCustomNote] = useState('');
   const [feedback, setFeedback] = useState<(ScanFeedback & { isKotak?: boolean }) | null>(null);
   const [autoFocusEnabled, setAutoFocusEnabled] = useState(true);
-  const [copiedResi, setCopiedResi] = useState<string | null>(null);
-
-  // 1-Second Loading Cooldown State
-  const [isLoadingCooldown, setIsLoadingCooldown] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState<number>(1.0);
-  const [cooldownTrackingNumber, setCooldownTrackingNumber] = useState<string>('');
-  const isCooldownRef = useRef(false);
-  const cooldownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const feedbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const handleCopyResi = (resi: string) => {
-    navigator.clipboard.writeText(resi);
-    setCopiedResi(resi);
-    setTimeout(() => setCopiedResi(null), 1500);
-  };
-
-  // Keep input focused so barcode scanner gun works uninterrupted
+  // Keep input focused so barcode scanner gun works uninterrupted without delays
   useEffect(() => {
-    if (autoFocusEnabled && inputRef.current && !isLoadingCooldown) {
+    if (autoFocusEnabled && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [autoFocusEnabled, isLoadingCooldown]);
+  }, [autoFocusEnabled]);
 
   // Click outside to re-focus helper
   useEffect(() => {
@@ -105,7 +83,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
       ) {
         return;
       }
-      if (autoFocusEnabled && inputRef.current && !isCooldownRef.current) {
+      if (autoFocusEnabled && inputRef.current) {
         inputRef.current.focus();
       }
     };
@@ -114,35 +92,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
     return () => window.removeEventListener('click', handleGlobalClick);
   }, [autoFocusEnabled]);
 
-  // Cleanup cooldown interval on unmount
-  useEffect(() => {
-    return () => {
-      if (cooldownIntervalRef.current) {
-        clearInterval(cooldownIntervalRef.current);
-        cooldownIntervalRef.current = null;
-      }
-    };
-  }, []);
-
-  const handleSkipCooldown = () => {
-    if (cooldownIntervalRef.current) {
-      clearInterval(cooldownIntervalRef.current);
-      cooldownIntervalRef.current = null;
-    }
-    isCooldownRef.current = false;
-    setIsLoadingCooldown(false);
-    setCooldownRemaining(0);
-    playReadyChime();
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 20);
-  };
-
   const handleProcessScan = (rawResi: string) => {
-    if (isCooldownRef.current) {
-      return;
-    }
-
     const extracted = extractTrackingNumberFromBarcodeKotak(rawResi);
     const cleaned = extracted.trackingNumber;
 
@@ -165,13 +115,13 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
 
     if (result === 'duplicate') {
       if (soundEnabled) playDuplicateWarning();
-      if (voiceEnabled) speakText('Resi sudah ada, duplikat!');
+      if (voiceEnabled) speakText('Resi duplikat!');
       if (typeof navigator !== 'undefined' && navigator.vibrate) {
         navigator.vibrate([100, 50, 100]);
       }
       setFeedback({
         type: 'duplicate',
-        message: `PERINGATAN: Resi ${cleaned} sudah pernah di-scan pada sesi ini!`,
+        message: `Resi ${cleaned} sudah pernah di-scan pada sesi ini!`,
         trackingNumber: cleaned,
         timestamp: Date.now(),
         isKotak: extracted.isFrom2D,
@@ -182,7 +132,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
       if (voiceEnabled) speakText(`Peringatan, resi ${detectedInfo.shortName}`);
       setFeedback({
         type: 'mismatch',
-        message: `PERHATIAN: Resi ${cleaned} terdeteksi ${detectedInfo.name} (Beda dari ekspedisi sesi ini)!`,
+        message: `Resi ${cleaned} terdeteksi ${detectedInfo.name} (Beda dari ekspedisi sesi)!`,
         trackingNumber: cleaned,
         timestamp: Date.now(),
         isKotak: extracted.isFrom2D,
@@ -193,54 +143,26 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
       setFeedback({
         type: 'success',
         message: extracted.isFrom2D
-          ? `Sukses [Barcode Kotak 2D]: Resi ${cleaned} berhasil diekstrak dan dicatat.`
-          : `Sukses: Resi ${cleaned} berhasil dicatat.`,
+          ? `[Barcode Kotak 2D] Resi ${cleaned} berhasil dicatat.`
+          : `Resi ${cleaned} berhasil dicatat.`,
         trackingNumber: cleaned,
         timestamp: Date.now(),
         isKotak: extracted.isFrom2D,
       });
     }
 
-    // Reset temporary note and clear input
+    // Instantly reset input and notes, and reset condition back to 'baik'
     setInputValue('');
     setCustomNote('');
-    // Reset condition back to 'baik' after scan if was set to special condition
     setSelectedCondition('baik');
 
-    // START 1-SECOND LOADING COOLDOWN FOR BARCODE READER
-    isCooldownRef.current = true;
-    setIsLoadingCooldown(true);
-    setCooldownRemaining(1.0);
-    setCooldownTrackingNumber(cleaned);
+    // Immediate focus for the next scan without any delay
+    inputRef.current?.focus();
 
-    const startTime = Date.now();
-    const DURATION = 1000; // 1 second
-
-    if (cooldownIntervalRef.current) {
-      clearInterval(cooldownIntervalRef.current);
-    }
-
-    cooldownIntervalRef.current = setInterval(() => {
-      const elapsed = Date.now() - startTime;
-      const remaining = Math.max(0, (DURATION - elapsed) / 1000);
-      setCooldownRemaining(remaining);
-
-      if (remaining <= 0) {
-        if (cooldownIntervalRef.current) clearInterval(cooldownIntervalRef.current);
-        cooldownIntervalRef.current = null;
-        isCooldownRef.current = false;
-        setIsLoadingCooldown(false);
-        playReadyChime();
-        setTimeout(() => {
-          inputRef.current?.focus();
-        }, 20);
-      }
-    }, 40);
-
-    // Clear feedback after 4.5 seconds
+    // Auto-dismiss feedback message after 3.5 seconds
     feedbackTimeoutRef.current = setTimeout(() => {
       setFeedback(null);
-    }, 4500);
+    }, 3500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -256,9 +178,9 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
   const detectedInfo = detectedWhileTyping ? getExpedition(detectedWhileTyping) : null;
 
   return (
-    <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 sm:p-6 shadow-xl backdrop-blur-sm">
-      {/* Header bar */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 sm:p-5 shadow-xl backdrop-blur-sm">
+      {/* Header bar: Simple & focused */}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2.5">
           <div className="p-2 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1">
             <Barcode className="w-5 h-5" />
@@ -266,107 +188,71 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
           </div>
           <div>
             <h2 className="text-base font-bold text-slate-100 flex items-center gap-2">
-              Tembak Resi (Garis 1D & Kotak 2D)
-              {isLoadingCooldown ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse">
-                  <Clock className="w-3 h-3 mr-1 animate-spin" />
-                  Loading {cooldownRemaining.toFixed(1)}s
-                </span>
-              ) : (
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  <Zap className="w-3 h-3 mr-1" />
-                  Siap Tembak
-                </span>
-              )}
+              <span>Tembak Barcode Resi</span>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <Zap className="w-3 h-3 mr-1" />
+                Instan (Tanpa Jeda)
+              </span>
             </h2>
             <p className="text-xs text-slate-400">
-              Mendukung tembak <strong className="text-slate-200">Barcode Kotak (QR Code / DataMatrix)</strong> maupun{' '}
-              <strong className="text-slate-200">Barcode Garis 1D</strong> dengan jeda loading 1 detik setelah scan.
+              Mendukung barcode garis (1D) dan barcode kotak (2D/QR Code)
             </p>
           </div>
         </div>
 
-        {/* Action toggles: Sound, Voice, Camera, Bulk */}
+        {/* Quick action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            type="button"
+            onClick={onOpenCameraModal}
+            className="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>Scan Kamera</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={onOpenBulkModal}
+            className="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-600 cursor-pointer"
+          >
+            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Tempel Banyak</span>
+          </button>
+
           <button
             type="button"
             onClick={onToggleSound}
             title={soundEnabled ? 'Matikan Suara Beep' : 'Aktifkan Suara Beep'}
-            className={`p-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+            className={`p-1.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
               soundEnabled
                 ? 'bg-slate-700/60 text-slate-200 border-slate-600 hover:bg-slate-700'
                 : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
             }`}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-400" /> : <VolumeX className="w-4 h-4" />}
-            <span className="hidden sm:inline">{soundEnabled ? 'Beep Aktif' : 'Beep Mute'}</span>
           </button>
 
           <button
             type="button"
             onClick={onToggleVoice}
-            title={voiceEnabled ? 'Matikan Notifikasi Suara' : 'Aktifkan Suara Bicara (TTS)'}
-            className={`p-2 rounded-lg border text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer ${
+            title={voiceEnabled ? 'Matikan Suara Bicara' : 'Aktifkan Suara Bicara (TTS)'}
+            className={`p-1.5 rounded-lg border text-xs font-medium flex items-center gap-1 transition-colors cursor-pointer ${
               voiceEnabled
                 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40'
                 : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-slate-200'
             }`}
           >
             <Sparkles className="w-4 h-4" />
-            <span className="hidden sm:inline">Voice TTS</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenCameraModal}
-            className="px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-          >
-            <Camera className="w-4 h-4" />
-            <span>Scan Kamera (Jeda 1s)</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onOpenBulkModal}
-            className="px-3 py-2 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-600 cursor-pointer"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-            <span>Tempel Banyak</span>
           </button>
         </div>
       </div>
 
-      {/* 1-Second Loading Banner Notice */}
-      {isLoadingCooldown && (
-        <div className="mb-3 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-between text-xs text-amber-300 animate-in fade-in duration-100">
-          <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 animate-spin text-amber-400 shrink-0" />
-            <div>
-              <span className="font-bold text-white">Pembaca barcode loading 1 detik:</span>{' '}
-              <span>
-                Resi <strong className="font-mono text-amber-200">{cooldownTrackingNumber}</strong> berhasil ditembak.
-                Jeda aman anti double-scan ({cooldownRemaining.toFixed(1)}s tersisa).
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={handleSkipCooldown}
-            className="px-2.5 py-1 rounded bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-[11px] flex items-center gap-1 transition cursor-pointer shrink-0 shadow-sm"
-          >
-            <FastForward className="w-3 h-3" />
-            <span>Lewati Jeda</span>
-          </button>
-        </div>
-      )}
-
-      {/* Main Input Box */}
+      {/* Main Barcode Gun Input */}
       <div className="relative">
         <div
           className={`relative rounded-xl border-2 transition-all shadow-inner overflow-hidden ${
-            isLoadingCooldown
-              ? 'border-amber-500/80 bg-slate-900/90 ring-2 ring-amber-500/20'
-              : feedback?.type === 'duplicate'
+            feedback?.type === 'duplicate'
               ? 'border-red-500 bg-red-950/20 shadow-red-900/30'
               : feedback?.type === 'mismatch'
               ? 'border-amber-500 bg-amber-950/20 shadow-amber-900/30'
@@ -375,20 +261,9 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               : 'border-amber-500/50 bg-slate-900 focus-within:border-amber-400 focus-within:ring-4 focus-within:ring-amber-500/20'
           }`}
         >
-          {/* Animated 1-Second Cooldown Progress Bar */}
-          {isLoadingCooldown && (
-            <div className="h-1.5 w-full bg-slate-800 overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 via-amber-400 to-emerald-400 transition-all duration-40 ease-linear"
-                style={{ width: `${((1.0 - cooldownRemaining) / 1.0) * 100}%` }}
-              />
-            </div>
-          )}
-
           <div className="flex items-center">
-            <div className="pl-4 pr-2 text-slate-400 flex items-center gap-1">
+            <div className="pl-3.5 pr-2 text-slate-400 flex items-center gap-1">
               <Barcode className="w-6 h-6 text-amber-400" />
-              <QrCode className="w-4 h-4 text-indigo-400" />
             </div>
 
             <input
@@ -398,74 +273,51 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
-              disabled={isLoadingCooldown}
-              placeholder={
-                isLoadingCooldown
-                  ? `⏳ Loading 1 detik... Menyiapkan scanner (${cooldownRemaining.toFixed(1)}s)`
-                  : 'Tembak barcode kotak (QR)/garis atau ketik resi...'
-              }
+              placeholder="Tembak barcode scanner atau ketik resi..."
               autoComplete="off"
               autoFocus
-              className="w-full py-4 pr-32 bg-transparent text-lg sm:text-2xl font-mono font-bold tracking-wider text-white placeholder:text-slate-500 placeholder:text-sm sm:placeholder:text-base placeholder:font-normal focus:outline-none disabled:opacity-60"
+              className="w-full py-3.5 pr-24 bg-transparent text-lg sm:text-xl font-mono font-bold tracking-wider text-white placeholder:text-slate-500 placeholder:text-sm placeholder:font-normal focus:outline-none"
             />
 
-            {/* Quick Submit or Cooldown Button */}
-            <div className="absolute right-2 flex items-center gap-1.5">
-              {isLoadingCooldown ? (
-                <div className="flex items-center gap-1.5">
-                  <div className="px-3 py-2 rounded-lg bg-amber-500/20 text-amber-300 border border-amber-500/30 text-xs font-mono font-bold flex items-center gap-1.5">
-                    <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                    <span>{cooldownRemaining.toFixed(1)}s</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSkipCooldown}
-                    className="px-2 py-2 text-xs text-slate-300 hover:text-white bg-slate-800 rounded border border-slate-700 cursor-pointer"
-                    title="Lewati jeda loading 1 detik"
-                  >
-                    Skip
-                  </button>
-                </div>
-              ) : (
-                <>
-                  {inputValue && (
-                    <button
-                      type="button"
-                      onClick={() => setInputValue('')}
-                      className="px-2 py-1.5 text-xs text-slate-400 hover:text-slate-200 bg-slate-800 rounded border border-slate-700 cursor-pointer"
-                    >
-                      Batal
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => handleProcessScan(inputValue)}
-                    disabled={!inputValue.trim()}
-                    className="px-4 py-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:hover:bg-amber-500 text-slate-950 font-bold text-sm flex items-center gap-1 shadow-md transition cursor-pointer"
-                  >
-                    <span>Enter</span>
-                  </button>
-                </>
+            {/* Clear or Enter Button */}
+            <div className="absolute right-2 flex items-center gap-1">
+              {inputValue && (
+                <button
+                  type="button"
+                  onClick={() => setInputValue('')}
+                  className="p-1.5 text-xs text-slate-400 hover:text-white transition cursor-pointer"
+                  title="Hapus"
+                >
+                  <X className="w-4 h-4" />
+                </button>
               )}
+              <button
+                type="button"
+                onClick={() => handleProcessScan(inputValue)}
+                disabled={!inputValue.trim()}
+                className="px-3.5 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-30 disabled:hover:bg-amber-500 text-slate-950 font-bold text-xs sm:text-sm transition cursor-pointer shadow"
+              >
+                Enter
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Real-time prefix & 2D parser detection badge while typing */}
-        {detectedInfo && parsedCandidate && !isLoadingCooldown && (
-          <div className="mt-2 flex items-center justify-between text-xs px-2 flex-wrap gap-2">
+        {/* Live Detected Info Pill */}
+        {detectedInfo && parsedCandidate && (
+          <div className="mt-2 flex items-center justify-between text-xs px-1 flex-wrap gap-2 animate-in fade-in duration-100">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-slate-400">Resi Bersih:</span>
-              <span className="font-mono font-bold text-white bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+              <span className="text-slate-400">Resi:</span>
+              <span className="font-mono font-bold text-white bg-slate-900 px-2 py-0.5 rounded border border-slate-700">
                 {parsedCandidate.trackingNumber}
               </span>
               {parsedCandidate.isFrom2D && (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                  QR/DataMatrix 2D
+                <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                  Kotak 2D
                 </span>
               )}
               <span
-                className="px-2 py-0.5 rounded font-bold border"
+                className="px-2 py-0.5 rounded font-bold border text-[11px]"
                 style={{
                   backgroundColor: `${detectedInfo.color}15`,
                   color: detectedInfo.color,
@@ -475,7 +327,7 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
                 {detectedInfo.name} ({detectedInfo.code})
               </span>
               {expectedExpeditionInfo && expectedExpeditionInfo.id !== detectedInfo.id && (
-                <span className="text-amber-400 font-semibold flex items-center gap-1">
+                <span className="text-amber-400 font-semibold flex items-center gap-1 text-[11px]">
                   <AlertTriangle className="w-3.5 h-3.5" />
                   Beda ekspedisi dari sesi ({expectedExpeditionInfo.shortName})!
                 </span>
@@ -485,56 +337,10 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
         )}
       </div>
 
-      {/* Quick Test / Simulator for Barcode Kotak & Garis */}
-      <div className="mt-2.5 flex items-center gap-2 overflow-x-auto pb-1 text-[11px] text-slate-400">
-        <span className="shrink-0 flex items-center gap-1 text-slate-500">
-          <ScanLine className="w-3 h-3 text-indigo-400" />
-          Tes Tembak Barcode:
-        </span>
-        <button
-          type="button"
-          onClick={() => handleProcessScan('SPXID04829103984|JAKARTA|COD')}
-          disabled={isLoadingCooldown}
-          className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 border border-slate-700 font-mono shrink-0 transition cursor-pointer"
-          title="Simulasi scan QR Code SPX dengan payload pipe delimiter"
-        >
-          [QR] SPXID04829103984|COD
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            handleProcessScan('https://spx.co.id/m/tracking?tracking_number=SPXID04829103995')
-          }
-          disabled={isLoadingCooldown}
-          className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 border border-slate-700 font-mono shrink-0 transition cursor-pointer"
-          title="Simulasi scan QR Code SPX yang berupa Link URL Tracking"
-        >
-          [QR URL] spx.co.id/tracking
-        </button>
-        <button
-          type="button"
-          onClick={() => handleProcessScan('JP8273918237')}
-          disabled={isLoadingCooldown}
-          className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 border border-slate-700 font-mono shrink-0 transition cursor-pointer"
-          title="Simulasi scan Barcode J&T"
-        >
-          [J&T] JP8273918237
-        </button>
-        <button
-          type="button"
-          onClick={() => handleProcessScan('AWB:003928174628')}
-          disabled={isLoadingCooldown}
-          className="px-2 py-0.5 rounded bg-slate-900 hover:bg-slate-700 disabled:opacity-40 text-slate-300 border border-slate-700 font-mono shrink-0 transition cursor-pointer"
-          title="Simulasi scan QR Code SiCepat"
-        >
-          [SiCepat QR] AWB:003928174628
-        </button>
-      </div>
-
-      {/* Instant Feedback Alert */}
+      {/* Instant Scan Feedback Banner */}
       {feedback && (
         <div
-          className={`mt-3 p-3 rounded-xl border flex items-center justify-between gap-3 text-sm animate-in fade-in slide-in-from-top-2 duration-200 ${
+          className={`mt-3 p-3 rounded-xl border flex items-center justify-between gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-1 duration-150 ${
             feedback.type === 'duplicate'
               ? 'bg-rose-500/15 border-rose-500/50 text-rose-300'
               : feedback.type === 'mismatch'
@@ -542,57 +348,47 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
               : 'bg-emerald-500/15 border-emerald-500/50 text-emerald-300'
           }`}
         >
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2 min-w-0">
             {feedback.type === 'duplicate' ? (
-              <AlertTriangle className="w-5 h-5 text-rose-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
             ) : feedback.type === 'mismatch' ? (
-              <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
             ) : (
-              <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             )}
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold font-mono text-white">{feedback.trackingNumber}</span>
-                {feedback.isKotak && (
-                  <span className="bg-indigo-500/30 text-indigo-300 text-[10px] font-bold px-1.5 py-0.2 rounded">
-                    Barcode Kotak 2D
-                  </span>
-                )}
-              </div>
-              <span className="text-xs">{feedback.message}</span>
+            <div className="truncate">
+              <span className="font-semibold font-mono text-white mr-2">{feedback.trackingNumber}</span>
+              <span>{feedback.message}</span>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setFeedback(null)}
-            className="text-xs opacity-75 hover:opacity-100 underline shrink-0 cursor-pointer"
+            className="text-xs opacity-70 hover:opacity-100 underline shrink-0 cursor-pointer"
           >
             Tutup
           </button>
         </div>
       )}
 
-      {/* Package Condition Tagging Pre-Selector */}
-      <div className="mt-4 pt-4 border-t border-slate-700/60">
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
-            <span>Kondisi Paket Retur Saat Ini:</span>
-            <span className="text-slate-500 text-[11px] font-normal">
-              (Pilih kondisi sebelum/saat tembak resi jika paket rusak)
-            </span>
-          </label>
-          <button
-            type="button"
-            onClick={() => setSelectedCondition('baik')}
-            className={`text-[11px] px-2 py-0.5 rounded transition ${
-              selectedCondition === 'baik' ? 'text-slate-400' : 'text-amber-400 hover:underline cursor-pointer'
-            }`}
-          >
-            Reset ke Normal
-          </button>
+      {/* Package Condition Selection (Simple and compact) */}
+      <div className="mt-3 pt-3 border-t border-slate-700/60">
+        <div className="flex items-center justify-between gap-2 mb-1.5">
+          <span className="text-xs font-medium text-slate-300">
+            Kondisi Paket Retur:
+          </span>
+          {selectedCondition !== 'baik' && (
+            <button
+              type="button"
+              onClick={() => setSelectedCondition('baik')}
+              className="text-[11px] text-amber-400 hover:underline cursor-pointer"
+            >
+              Kembali ke Baik (Normal)
+            </button>
+          )}
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
           {(Object.keys(CONDITION_LABELS) as PackageCondition[]).map((condKey) => {
             const info = CONDITION_LABELS[condKey];
             const isSelected = selectedCondition === condKey;
@@ -602,184 +398,49 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
                 type="button"
                 onClick={() => {
                   setSelectedCondition(condKey);
-                  if (!isLoadingCooldown) inputRef.current?.focus();
+                  inputRef.current?.focus();
                 }}
-                className={`px-2.5 py-2 rounded-xl text-left border text-xs transition cursor-pointer flex flex-col justify-between ${
+                className={`px-2 py-1.5 rounded-lg text-xs font-medium border text-center transition cursor-pointer truncate ${
                   isSelected
-                    ? 'bg-amber-500/20 border-amber-400 text-white font-semibold ring-2 ring-amber-500/30'
-                    : 'bg-slate-900/50 border-slate-700/80 text-slate-300 hover:border-slate-600 hover:bg-slate-900'
+                    ? 'bg-amber-500/20 border-amber-400 text-white font-bold ring-1 ring-amber-500/30'
+                    : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-600'
                 }`}
               >
-                <span className="truncate">{info.label}</span>
-                {isSelected && <span className="text-[10px] text-amber-400 font-normal">Aktif untuk scan</span>}
+                {info.label}
               </button>
             );
           })}
         </div>
 
-        {/* Optional note field if non-baik condition selected */}
         {selectedCondition !== 'baik' && (
-          <div className="mt-2.5">
+          <div className="mt-2">
             <input
               type="text"
               value={customNote}
               onChange={(e) => setCustomNote(e.target.value)}
-              placeholder="Tambahkan catatan khusus paket ini (cth: kardus basah terkena hujan, bocor di pojok)..."
+              placeholder="Catatan kondisi paket (cth: kardus basah, bocor di pojok)..."
               className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-amber-500/40 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
             />
           </div>
         )}
       </div>
 
-      {/* Auto-focus helper banner */}
-      <div className="mt-3 flex items-center justify-between text-[11px] text-slate-400 pt-2 flex-wrap gap-2 border-b border-slate-700/60 pb-3">
+      {/* Footer helper */}
+      <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 pt-1">
         <span className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-          Input otomatis fokus — jeda 1 detik mencegah double-scan saat memindahkan paket
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
+          Fokus otomatis aktif — siap menerima tembakan scanner terus-menerus
         </span>
         <button
           type="button"
           onClick={() => {
             setAutoFocusEnabled(!autoFocusEnabled);
-            if (!autoFocusEnabled && !isLoadingCooldown) inputRef.current?.focus();
+            if (!autoFocusEnabled) inputRef.current?.focus();
           }}
-          className="text-slate-400 hover:text-slate-200 underline cursor-pointer"
+          className="hover:text-slate-200 underline cursor-pointer"
         >
-          {autoFocusEnabled ? 'Fokus Otomatis Aktif' : 'Fokus Otomatis Mati'}
+          {autoFocusEnabled ? 'Auto-Fokus Nyala' : 'Auto-Fokus Mati'}
         </button>
-      </div>
-
-      {/* LIST HASIL SCAN RESI (SHOWING SCANNED TRACKING NUMBERS DIRECTLY IN SCANNER) */}
-      <div className="mt-4 pt-1">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <ListOrdered className="w-4 h-4 text-emerald-400" />
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>List Hasil Scan Resi Sesi Ini</span>
-              <span className="px-2 py-0.5 rounded-full text-xs font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                {items.length} Resi
-              </span>
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400">Resi terbaru di urutan paling atas</span>
-        </div>
-
-        {items.length === 0 ? (
-          <div className="p-6 text-center rounded-xl bg-slate-900/60 border border-dashed border-slate-700 text-slate-400">
-            <Package className="w-8 h-8 mx-auto text-slate-600 mb-2" />
-            <p className="text-sm font-medium text-slate-300">Belum ada resi yang ditembak</p>
-            <p className="text-xs text-slate-500 mt-1">
-              Tembak barcode kotak (QR)/garis atau ketik nomor resi di atas untuk mulai mencatat paket retur.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto pr-1">
-            {items.map((item, index) => {
-              const detected = detectExpedition(item.trackingNumber);
-              const expInfo = getExpedition(detected);
-              const isFirst = index === 0;
-
-              return (
-                <div
-                  key={item.id}
-                  className={`p-3 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 transition ${
-                    isFirst
-                      ? 'bg-slate-900/90 border-emerald-500/60 shadow-md ring-1 ring-emerald-500/40'
-                      : 'bg-slate-900/60 border-slate-700/80 hover:border-slate-600'
-                  }`}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span className="w-7 h-7 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 flex items-center justify-center font-mono font-bold text-xs shrink-0">
-                      #{items.length - index}
-                    </span>
-
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-mono font-bold text-white tracking-wider text-sm sm:text-base">
-                          {item.trackingNumber}
-                        </span>
-
-                        {isFirst && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
-                            Baru Saja
-                          </span>
-                        )}
-
-                        {item.barcodeType === '2d_kotak' && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                            Kotak 2D (QR)
-                          </span>
-                        )}
-
-                        <span
-                          className="px-2 py-0.5 rounded text-[10px] font-bold border"
-                          style={{
-                            backgroundColor: `${expInfo.color}15`,
-                            color: expInfo.color,
-                            borderColor: `${expInfo.color}40`,
-                          }}
-                        >
-                          {expInfo.name} ({expInfo.code})
-                        </span>
-
-                        {item.isMismatch && (
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
-                            <AlertTriangle className="w-3 h-3" />
-                            Beda Ekspedisi
-                          </span>
-                        )}
-                      </div>
-
-                      <div className="flex items-center gap-3 text-xs text-slate-400 mt-1 flex-wrap">
-                        <span className="text-slate-300 font-medium">
-                          Kondisi: {CONDITION_LABELS[item.condition]?.label || 'Baik'}
-                        </span>
-                        <span>•</span>
-                        <span>
-                          Pukul{' '}
-                          {new Date(item.scannedAt).toLocaleTimeString('id-ID', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit',
-                          })}
-                        </span>
-                        {item.note && (
-                          <>
-                            <span>•</span>
-                            <span className="text-amber-300/90 italic truncate max-w-xs">
-                              Catatan: {item.note}
-                            </span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => handleCopyResi(item.trackingNumber)}
-                      className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium flex items-center gap-1.5 transition cursor-pointer"
-                      title="Salin nomor resi"
-                    >
-                      {copiedResi === item.trackingNumber ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-emerald-400 font-bold">Tersalin</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5" />
-                          <span>Salin</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
