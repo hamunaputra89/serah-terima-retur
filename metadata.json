@@ -1,0 +1,6 @@
+{
+  "name": "Scan Serah Terima Retur Ekspedisi",
+  "description": "Aplikasi scan tembak resi serah terima retur paket ekspedisi dengan pencatatan berita acara, audio beeper, dan cetak manifest",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
