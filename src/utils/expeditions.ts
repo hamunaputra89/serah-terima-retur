@@ -22,8 +22,8 @@ export const EXPEDITIONS: ExpeditionInfo[] = [
     bgColor: 'bg-red-500/10',
     textColor: 'text-red-400',
     borderColor: 'border-red-500/30',
-    prefixes: ['JP', 'JX', 'JT', '888', '555', 'JD0'],
-    sampleResi: 'JP8273918237',
+    prefixes: ['JY', 'JP', 'JX', 'JT', 'JS', 'JD', 'JD0', 'EZ', 'TJNT', 'CM', 'JNT', '888', '555'],
+    sampleResi: 'JY1718078315',
   },
   {
     id: 'sicepat',
@@ -196,12 +196,18 @@ export function detectExpedition(rawResi: string): ExpeditionId {
     return 'spx';
   }
   if (
+    clean.startsWith('JY') ||
     clean.startsWith('JP') ||
     clean.startsWith('JX') ||
     clean.startsWith('JT') ||
+    clean.startsWith('JS') ||
+    clean.startsWith('JD') ||
+    clean.startsWith('EZ') ||
+    clean.startsWith('TJNT') ||
+    clean.startsWith('CM') ||
+    clean.startsWith('JNT') ||
     clean.startsWith('888') ||
-    clean.startsWith('555') ||
-    clean.startsWith('JD0')
+    clean.startsWith('555')
   ) {
     return 'jnt';
   }
@@ -257,6 +263,32 @@ export function detectExpedition(rawResi: string): ExpeditionId {
   }
 
   return 'lainnya';
+}
+
+/**
+ * Resolves the effective expedition to display for an item.
+ * If the item has an unknown or 'lainnya' detected expedition, but a specific expedition
+ * was selected for the session, this falls back to the session's selected expedition.
+ */
+export function getItemEffectiveExpedition(
+  itemExpeditionId: string | undefined,
+  sessionExpeditionId: ExpeditionId | 'all' | undefined
+): ExpeditionInfo {
+  // If item has a specific recognized expedition and not 'lainnya', use it
+  if (
+    itemExpeditionId &&
+    itemExpeditionId !== 'lainnya' &&
+    itemExpeditionId !== 'other' &&
+    itemExpeditionId !== 'all'
+  ) {
+    return getExpedition(itemExpeditionId as ExpeditionId);
+  }
+  // If item was 'lainnya' or unknown, but the session has a chosen expedition (not 'all'),
+  // use the expedition that was selected for the session!
+  if (sessionExpeditionId && sessionExpeditionId !== 'all') {
+    return getExpedition(sessionExpeditionId);
+  }
+  return getExpedition('lainnya');
 }
 
 export function cleanTrackingNumber(input: string): string {

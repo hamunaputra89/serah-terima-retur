@@ -150,8 +150,11 @@ export default function App() {
       if (existingResiSet.has(clean)) {
         duplicateCount++;
       } else {
-        existingResiSet.add(clean);
-        const detected = detectExpedition(clean);
+        const rawDetected = detectExpedition(clean);
+        const detected =
+          rawDetected === 'lainnya' && activeSession.expedition !== 'all'
+            ? activeSession.expedition
+            : rawDetected;
         const isMismatch =
           activeSession.expedition !== 'all' && detected !== activeSession.expedition;
 
@@ -202,7 +205,11 @@ export default function App() {
       return 'duplicate';
     }
 
-    const detectedId = detectExpedition(cleanResi);
+    const rawDetectedId = detectExpedition(cleanResi);
+    const detectedId =
+      rawDetectedId === 'lainnya' && activeSession.expedition !== 'all'
+        ? activeSession.expedition
+        : rawDetectedId;
     const isMismatch =
       activeSession.expedition !== 'all' && detectedId !== activeSession.expedition;
 

@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { HandoverSession } from '../types';
-import { getExpedition, CONDITION_LABELS } from './expeditions';
+import { getExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from './expeditions';
 
 export function generateBastPdfBlob(session: HandoverSession): Blob {
   const doc = new jsPDF({
@@ -119,7 +119,7 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
 
   // Items Table
   const tableData = session.items.map((item, index) => {
-    const itemExp = getExpedition(item.detectedExpedition || item.expedition);
+    const itemExp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
     const cond = CONDITION_LABELS[item.condition] || { label: item.condition };
     const scanTime = new Date(item.scannedAt).toLocaleTimeString('id-ID', {
       hour: '2-digit',

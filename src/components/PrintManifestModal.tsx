@@ -16,7 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem } from '../types';
-import { getExpedition, CONDITION_LABELS } from '../utils/expeditions';
+import { getExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from '../utils/expeditions';
 import { executeSmartPrint, openPrintInNewTab } from '../utils/printer';
 import { uploadBastPdfToGoogleDrive, DriveUploadResult } from '../utils/googleDrive';
 import { generateBastPdfBlob } from '../utils/pdfGenerator';
@@ -186,7 +186,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   const handleExportCSV = () => {
     const headers = ['No', 'No Resi', 'Ekspedisi', 'Waktu Scan', 'Kondisi Paket', 'Catatan'];
     const rows = session.items.map((item, index) => {
-      const exp = getExpedition(item.detectedExpedition);
+      const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
       const cond = CONDITION_LABELS[item.condition].label;
       const dateStr = new Date(item.scannedAt).toLocaleString('id-ID');
       const note = item.note || '-';
@@ -498,9 +498,10 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                     </p>
                   </div>
                   <div className="text-right">
-                    <span className="inline-block px-2 py-0.5 bg-slate-900 text-white font-mono font-bold text-xs rounded print:bg-white print:text-black print:border print:border-black">
+                    <div className="inline-block px-2.5 py-1 bg-white text-slate-900 border-2 border-slate-800 font-mono font-bold text-xs rounded shadow-xs print:bg-white print:text-slate-900 print:border-slate-800">
+                      <span className="text-[10px] font-normal text-slate-600 mr-1 print:text-slate-700">NO:</span>
                       {session.bastNumber}
-                    </span>
+                    </div>
                     <p className="text-[10px] text-slate-600 mt-0.5">
                       {new Date(session.createdAt).toLocaleDateString('id-ID', {
                         weekday: 'long',
@@ -618,7 +619,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                               <tbody className="divide-y divide-slate-300">
                                 {chunk.map((item, rowIdx) => {
                                   const globalIdx = itemsBefore + rowIdx + 1;
-                                  const exp = getExpedition(item.detectedExpedition);
+                                  const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
                                   const isDamaged = item.condition !== 'baik';
 
                                   return (
@@ -730,9 +731,10 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                   </p>
                 </div>
                 <div className="text-right">
-                  <span className="inline-block px-2.5 py-1 bg-slate-900 text-white font-mono font-bold text-xs rounded print:bg-white print:text-black print:border print:border-black">
+                  <div className="inline-block px-2.5 py-1 bg-white text-slate-900 border-2 border-slate-800 font-mono font-bold text-xs rounded shadow-xs print:bg-white print:text-slate-900 print:border-slate-800">
+                    <span className="text-[10px] font-normal text-slate-600 mr-1 print:text-slate-700">NO:</span>
                     {session.bastNumber}
-                  </span>
+                  </div>
                   <p className="text-[11px] text-slate-500 mt-1">
                     {new Date(session.createdAt).toLocaleDateString('id-ID', {
                       weekday: 'long',
@@ -823,7 +825,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                   </thead>
                   <tbody>
                     {session.items.map((item, idx) => {
-                      const exp = getExpedition(item.detectedExpedition);
+                      const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
                       const cond = CONDITION_LABELS[item.condition];
                       return (
                         <tr

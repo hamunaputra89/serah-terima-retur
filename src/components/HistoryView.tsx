@@ -13,7 +13,7 @@ import {
   Package,
 } from 'lucide-react';
 import { HandoverSession, ExpeditionId } from '../types';
-import { EXPEDITIONS, getExpedition } from '../utils/expeditions';
+import { EXPEDITIONS, getExpedition, getItemEffectiveExpedition } from '../utils/expeditions';
 import { ConfirmModal } from './ConfirmModal';
 
 interface HistoryViewProps {
@@ -81,7 +81,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
     const rows: Array<string[]> = [];
     sessions.forEach((s) => {
       s.items.forEach((item) => {
-        const exp = getExpedition(item.detectedExpedition);
+        const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, s.expedition);
         rows.push([
           `"${s.bastNumber}"`,
           `"${s.expedition.toUpperCase()}"`,

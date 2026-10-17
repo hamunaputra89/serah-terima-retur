@@ -19,7 +19,7 @@ import {
   QrCode,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem, PackageCondition, ExpeditionId } from '../types';
-import { getExpedition, detectExpedition, CONDITION_LABELS } from '../utils/expeditions';
+import { getExpedition, detectExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from '../utils/expeditions';
 import { ScannerInput } from './ScannerInput';
 import { SessionSummaryCards } from './SessionSummaryCards';
 import { ConfirmModal } from './ConfirmModal';
@@ -88,7 +88,11 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
     }
 
     const cleanResi = trackingNumber.trim().toUpperCase();
-    const detectedId: ExpeditionId = detectExpedition(cleanResi);
+    const rawDetected: ExpeditionId = detectExpedition(cleanResi);
+    const detectedId: ExpeditionId =
+      rawDetected === 'lainnya' && session.expedition !== 'all'
+        ? session.expedition
+        : rawDetected;
     let isMismatch = false;
 
     if (session.expedition !== 'all' && detectedId !== session.expedition) {
@@ -413,7 +417,7 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {filteredItems.map((item, index) => {
-                  const detectedInfo = getExpedition(item.detectedExpedition);
+                  const detectedInfo = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
                   const conditionInfo = CONDITION_LABELS[item.condition];
                   const isBeingEdited = editingItemId === item.id;
 
