@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { HandoverSession, ExpeditionId } from '../types';
 import { EXPEDITIONS, getExpedition } from '../utils/expeditions';
+import { ConfirmModal } from './ConfirmModal';
 
 interface HistoryViewProps {
   sessions: HandoverSession[];
@@ -36,6 +37,16 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterExpedition, setFilterExpedition] = useState<ExpeditionId | 'all'>('all');
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDestructive?: boolean;
+    iconType?: 'danger' | 'warning' | 'success';
+    onConfirm: () => void;
+  } | null>(null);
 
   const totalPackagesAllTime = sessions.reduce((acc, s) => acc + s.items.length, 0);
 
@@ -133,13 +144,19 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             <button
               type="button"
               onClick={() => {
-                if (
-                  window.confirm(
-                    'Peringatan: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA BAST dan mengosongkan seluruh riwayat? Tindakan ini tidak dapat dibatalkan.'
-                  )
-                ) {
-                  onClearAllSessions();
-                }
+                setConfirmModal({
+                  isOpen: true,
+                  title: 'Kosongkan Semua Data BAST',
+                  message: 'Peringatan: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA BAST dan mengosongkan seluruh riwayat? Tindakan ini akan menghapus semua sesi dan nomor resi.',
+                  confirmLabel: 'Ya, Kosongkan Semua',
+                  cancelLabel: 'Batal',
+                  isDestructive: true,
+                  iconType: 'danger',
+                  onConfirm: () => {
+                    setConfirmModal(null);
+                    onClearAllSessions();
+                  },
+                });
               }}
               className="px-3 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
               title="Kosongkan seluruh data BAST dan resi"
@@ -316,15 +333,21 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (
-                          window.confirm(
-                            `Hapus sesi ${sess.bastNumber} beserta seluruh ${sess.items.length} data resi di dalamnya?`
-                          )
-                        ) {
-                          onDeleteSession(sess.id);
-                        }
+                        setConfirmModal({
+                          isOpen: true,
+                          title: 'Hapus Sesi BAST',
+                          message: `Hapus sesi ${sess.bastNumber} beserta seluruh ${sess.items.length} data resi di dalamnya?`,
+                          confirmLabel: 'Ya, Hapus Sesi',
+                          cancelLabel: 'Batal',
+                          isDestructive: true,
+                          iconType: 'danger',
+                          onConfirm: () => {
+                            setConfirmModal(null);
+                            onDeleteSession(sess.id);
+                          },
+                        });
                       }}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                       title="Hapus Sesi"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -348,6 +371,20 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             );
           })}
         </div>
+      )}
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          cancelLabel={confirmModal.cancelLabel}
+          isDestructive={confirmModal.isDestructive}
+          iconType={confirmModal.iconType}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
       )}
     </div>
   );

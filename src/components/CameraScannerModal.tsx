@@ -30,6 +30,7 @@ import {
   getExpedition,
   detectExpedition,
 } from '../utils/expeditions';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface CameraScanLog {
   id: string;
@@ -87,10 +88,12 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
 
   const isInsideIframe = typeof window !== 'undefined' && window.self !== window.top;
 
-  const handleCopyResi = (resi: string) => {
-    navigator.clipboard.writeText(resi);
-    setCopiedResi(resi);
-    setTimeout(() => setCopiedResi(null), 1500);
+  const handleCopyResi = async (resi: string) => {
+    const ok = await copyToClipboard(resi);
+    if (ok) {
+      setCopiedResi(resi);
+      setTimeout(() => setCopiedResi(null), 1500);
+    }
   };
 
   const stopAndClearScanner = useCallback(async () => {

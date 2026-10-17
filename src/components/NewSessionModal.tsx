@@ -132,10 +132,9 @@ export const NewSessionModal: React.FC<NewSessionModalProps> = ({
               </label>
               <input
                 type="text"
-                required
                 value={courierName}
                 onChange={(e) => setCourierName(e.target.value)}
-                placeholder="Cth: Joko Supriyanto"
+                placeholder="Cth: Joko Supriyanto (Opsional)"
                 className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-amber-400"
               />
             </div>

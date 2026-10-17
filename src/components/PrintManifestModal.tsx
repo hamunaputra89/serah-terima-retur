@@ -20,8 +20,9 @@ import { getExpedition, CONDITION_LABELS } from '../utils/expeditions';
 import { executeSmartPrint, openPrintInNewTab } from '../utils/printer';
 import { uploadBastPdfToGoogleDrive, DriveUploadResult } from '../utils/googleDrive';
 import { generateBastPdfBlob } from '../utils/pdfGenerator';
-import { auth, googleSignIn } from '../utils/firebase';
+import { auth, googleSignIn, getAccessToken } from '../utils/firebase';
 import { GoogleDriveSyncButton } from './GoogleDriveSyncButton';
+import { copyToClipboard } from '../utils/clipboard';
 
 interface PrintManifestModalProps {
   isOpen: boolean;
@@ -86,17 +87,25 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
     setIsSyncingDrive(true);
     setDriveSyncError(null);
     try {
-      // Check if user is logged in
-      if (!auth.currentUser) {
+      let token = await getAccessToken();
+      // If no token cached, prompt Google sign-in
+      if (!token) {
         if (!isAuto) {
           const res = await googleSignIn();
-          if (!res?.user) return;
+          token = res?.accessToken || null;
         } else {
           return;
         }
       }
 
-      const result = await uploadBastPdfToGoogleDrive(session);
+      if (!token) {
+        if (!isAuto) {
+          setDriveSyncError('Autentikasi Google Drive dibatalkan atau token tidak tersedia.');
+        }
+        return;
+      }
+
+      const result = await uploadBastPdfToGoogleDrive(session, token);
       setDriveSyncResult(result);
       if (!isAuto) {
         setPrintNotice(`File PDF berhasil tersinkron ke Google Drive: ${result.name}`);
@@ -129,34 +138,30 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
   const handlePrint = async () => {
     setIsPrinting(true);
-    setPrintNotice('Mempersiapkan dialog cetak...');
 
-    // Automatically synchronize PDF to Google Drive if user is logged in and auto-sync is enabled
-    if (autoDriveSync && auth.currentUser) {
-      handleUploadToDrive(true);
+    // Auto-sync PDF to Drive in background if user is authenticated
+    if (autoDriveSync) {
+      getAccessToken().then((token) => {
+        if (token) {
+          uploadBastPdfToGoogleDrive(session, token)
+            .then((res) => setDriveSyncResult(res))
+            .catch((e) => console.warn('Background auto-sync notice:', e));
+        }
+      });
     }
 
     try {
       const targetId = getPrintTargetId();
-      const result = await executeSmartPrint({
+      await executeSmartPrint({
         elementId: targetId,
         title: `BAST Retur - ${session.bastNumber}`,
         layout: printLayout,
       });
-
-      if (result === 'new_tab') {
-        setPrintNotice('Halaman cetak dibuka di tab baru untuk menghindari batasan browser');
-      } else if (result === 'failed') {
-        setPrintNotice('Gunakan tombol "Buka Tab Cetak" jika dialog cetak terhalang');
-      } else {
-        setPrintNotice(null);
-      }
     } catch (e) {
       console.warn('Smart print notice:', e);
       handleOpenNewTab();
     } finally {
       setIsPrinting(false);
-      setTimeout(() => setPrintNotice(null), 4000);
     }
   };
 
@@ -169,12 +174,13 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
     });
   };
 
-  const handleCopyResiList = () => {
+  const handleCopyResiList = async () => {
     const text = session.items.map((i) => i.trackingNumber).join('\n');
-    navigator.clipboard.writeText(text).then(() => {
+    const ok = await copyToClipboard(text);
+    if (ok) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
-    });
+    }
   };
 
   const handleExportCSV = () => {

@@ -11,7 +11,6 @@ import {
   Layers,
   History,
   CheckCircle2,
-  Heart,
 } from 'lucide-react';
 import { HandoverSession, PackageCondition } from './types';
 import { detectExpedition, extractTrackingNumberFromBarcodeKotak } from './utils/expeditions';
@@ -401,11 +400,10 @@ export default function App() {
           <span>Sistem Serah Terima Retur Logistik • Standar BAST Ekspedisi Indonesia</span>
         </div>
 
-        {/* Handcrafted signature by Hery */}
+        {/* Status system */}
         <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-900/90 border border-slate-800 text-slate-400 shadow-sm">
-          <span>Handcraft with</span>
-          <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 animate-pulse" />
-          <span>by <strong className="text-slate-200 font-semibold tracking-wide">Hery</strong></span>
+          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Sistem Siap Digunakan</span>
         </div>
 
         <div className="flex items-center gap-3 text-slate-500">

@@ -22,6 +22,8 @@ import { HandoverSession, ReturnItem, PackageCondition, ExpeditionId } from '../
 import { getExpedition, detectExpedition, CONDITION_LABELS } from '../utils/expeditions';
 import { ScannerInput } from './ScannerInput';
 import { SessionSummaryCards } from './SessionSummaryCards';
+import { ConfirmModal } from './ConfirmModal';
+import { copyToClipboard } from '../utils/clipboard';
 import confetti from 'canvas-confetti';
 
 interface ActiveSessionViewProps {
@@ -56,6 +58,16 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [editingNote, setEditingNote] = useState('');
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    confirmLabel?: string;
+    cancelLabel?: string;
+    isDestructive?: boolean;
+    iconType?: 'danger' | 'warning' | 'success';
+    onConfirm: () => void;
+  } | null>(null);
 
   const expeditionInfo = session.expedition !== 'all' ? getExpedition(session.expedition) : null;
 
@@ -106,10 +118,28 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
     return isMismatch ? 'mismatch' : 'added';
   };
 
-  const handleCopyResi = (resi: string, id: string) => {
-    navigator.clipboard.writeText(resi);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 1500);
+  const handleCopyResi = async (resi: string, id: string) => {
+    const ok = await copyToClipboard(resi);
+    if (ok) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 1500);
+    }
+  };
+
+  const confirmDeleteItem = (item: ReturnItem) => {
+    setConfirmModal({
+      isOpen: true,
+      title: 'Hapus Paket Retur',
+      message: `Apakah Anda yakin ingin menghapus nomor resi ${item.trackingNumber} dari sesi ini?`,
+      confirmLabel: 'Ya, Hapus',
+      cancelLabel: 'Batal',
+      isDestructive: true,
+      iconType: 'danger',
+      onConfirm: () => {
+        handleDeleteItem(item.id);
+        setConfirmModal(null);
+      },
+    });
   };
 
   const handleDeleteItem = (itemId: string) => {
@@ -153,22 +183,39 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
 
   const handleFinishSession = () => {
     if (session.items.length === 0) {
-      alert('Sesi belum memiliki paket retur. Silakan tembak resi terlebih dahulu.');
+      setConfirmModal({
+        isOpen: true,
+        title: 'Belum Ada Paket Retur',
+        message: 'Sesi ini belum memiliki paket retur yang di-scan. Silakan tembak atau input nomor resi kurir terlebih dahulu sebelum menyelesaikan sesi.',
+        confirmLabel: 'Mengerti',
+        cancelLabel: 'Tutup',
+        isDestructive: false,
+        iconType: 'warning',
+        onConfirm: () => setConfirmModal(null),
+      });
       return;
     }
-    const confirm = window.confirm(
-      `Selesaikan sesi serah terima untuk ${session.items.length} paket retur?\nStatus akan ditandai selesai dan siap dicetak Berita Acara (BAST).`
-    );
-    if (confirm) {
-      try {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-        });
-      } catch {}
-      onCompleteSession(session.id);
-    }
+
+    setConfirmModal({
+      isOpen: true,
+      title: 'Selesaikan Sesi Serah Terima',
+      message: `Selesaikan sesi serah terima untuk ${session.items.length} paket retur?\nStatus akan ditandai Selesai dan dokumen Berita Acara (BAST) siap dicetak.`,
+      confirmLabel: 'Ya, Selesaikan',
+      cancelLabel: 'Batal',
+      isDestructive: false,
+      iconType: 'success',
+      onConfirm: () => {
+        setConfirmModal(null);
+        try {
+          confetti({
+            particleCount: 80,
+            spread: 70,
+            origin: { y: 0.6 },
+          });
+        } catch {}
+        onCompleteSession(session.id);
+      },
+    });
   };
 
   // Filtered items
@@ -506,13 +553,9 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
                       <td className="py-3 px-4 text-center">
                         <button
                           type="button"
-                          onClick={() => {
-                            if (window.confirm(`Hapus resi ${item.trackingNumber} dari sesi ini?`)) {
-                              handleDeleteItem(item.id);
-                            }
-                          }}
+                          onClick={() => confirmDeleteItem(item)}
                           title="Hapus resi ini jika salah scan"
-                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition"
+                          className="p-1.5 rounded-lg text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition cursor-pointer"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -525,6 +568,20 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
           </div>
         )}
       </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          title={confirmModal.title}
+          message={confirmModal.message}
+          confirmLabel={confirmModal.confirmLabel}
+          cancelLabel={confirmModal.cancelLabel}
+          isDestructive={confirmModal.isDestructive}
+          iconType={confirmModal.iconType}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
     </div>
   );
 };

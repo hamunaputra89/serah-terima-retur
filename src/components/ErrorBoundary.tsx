@@ -29,13 +29,12 @@ export class ErrorBoundary extends Component<Props, State> {
   };
 
   private handleResetStorage = () => {
-    if (window.confirm('Reset data lokal aplikasi? Semua riwayat sesi lokal akan dikosongkan.')) {
-      try {
-        localStorage.clear();
-        window.location.reload();
-      } catch (e) {
-        console.error('Failed to clear localStorage', e);
-      }
+    try {
+      localStorage.clear();
+      window.location.reload();
+    } catch (e) {
+      console.error('Failed to clear localStorage', e);
+      window.location.reload();
     }
   };
 

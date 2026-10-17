@@ -324,86 +324,23 @@ export function openPrintInNewTab({
   return true;
 }
 
-/**
- * Smart Print:
- * 1. Tries clean isolated hidden iframe print.
- * 2. If blocked or sandbox prevents it, falls back to openPrintInNewTab or window.print().
- */
 export async function executeSmartPrint({
   elementId,
   title = 'BAST Retur',
   layout = 'a4_1page',
-}: PrintOptions): Promise<'iframe' | 'new_tab' | 'window' | 'failed'> {
-  const el = document.getElementById(elementId);
-  if (!el) {
-    try {
-      window.print();
-      return 'window';
-    } catch {
-      return 'failed';
-    }
-  }
-
-  const fullHtml = generatePrintDocumentHtml(el.innerHTML, title, layout);
-
-  // Attempt isolated hidden iframe printing first (cleanest paper output)
-  try {
-    const existingIframe = document.getElementById('print-isolated-iframe');
-    if (existingIframe) {
-      existingIframe.remove();
-    }
-
-    const iframe = document.createElement('iframe');
-    iframe.id = 'print-isolated-iframe';
-    iframe.style.position = 'fixed';
-    iframe.style.right = '0';
-    iframe.style.bottom = '0';
-    iframe.style.width = '0';
-    iframe.style.height = '0';
-    iframe.style.border = '0';
-    iframe.style.visibility = 'hidden';
-    document.body.appendChild(iframe);
-
-    const doc = iframe.contentWindow?.document;
-    if (doc) {
-      doc.open();
-      doc.write(fullHtml);
-      doc.close();
-
-      await new Promise((resolve) => setTimeout(resolve, 300));
-
-      try {
-        iframe.contentWindow?.focus();
-        iframe.contentWindow?.print();
-        setTimeout(() => {
-          iframe.remove();
-        }, 3000);
-        return 'iframe';
-      } catch (printErr) {
-        console.info('Iframe print restricted, opening new tab:', printErr);
-        iframe.remove();
-        openPrintInNewTab({ elementId, title, layout });
-        return 'new_tab';
-      }
-    }
-  } catch (err) {
-    console.info('Isolated print not permitted in sandbox, falling back:', err);
-  }
-
-  // Fallback: try new tab
-  try {
-    const success = openPrintInNewTab({ elementId, title, layout });
-    if (success) return 'new_tab';
-  } catch (err) {
-    console.info('New tab print fallback note:', err);
-  }
-
-  // Final fallback: standard window.print
+}: PrintOptions): Promise<'window' | 'new_tab' | 'failed'> {
+  // Direct window.print() is the most reliable cross-platform standard
+  // (fully supports Android print spooler, iOS AirPrint, and desktop print dialogs)
   try {
     window.print();
     return 'window';
   } catch (err) {
-    console.warn('Window print failed:', err);
-    return 'failed';
+    console.warn('Direct window.print encountered an issue, trying new tab:', err);
+    try {
+      const ok = openPrintInNewTab({ elementId, title, layout });
+      return ok ? 'new_tab' : 'failed';
+    } catch {
+      return 'failed';
+    }
   }
 }
