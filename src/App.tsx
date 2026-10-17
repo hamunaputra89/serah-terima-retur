@@ -23,6 +23,7 @@ import {
   loadSettings,
   saveSettings,
   AppSettings,
+  clearAllStorageData,
 } from './utils/storage';
 import { ActiveSessionView } from './components/ActiveSessionView';
 import { HistoryView } from './components/HistoryView';
@@ -33,6 +34,7 @@ import { PrintManifestModal } from './components/PrintManifestModal';
 import { GuideModal } from './components/GuideModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
+import { GoogleDriveSyncButton } from './components/GoogleDriveSyncButton';
 import { playClickBeep } from './utils/audio';
 
 export default function App() {
@@ -122,6 +124,12 @@ export default function App() {
     if (activeSessionId === sessionId) {
       setActiveId(remaining.length > 0 ? remaining[0].id : null);
     }
+  };
+
+  const handleClearAllSessions = () => {
+    setSessions([]);
+    setActiveId(null);
+    clearAllStorageData();
   };
 
   const handleBulkImport = (
@@ -308,6 +316,7 @@ export default function App() {
 
           {/* Right quick buttons */}
           <div className="flex items-center gap-2">
+            <GoogleDriveSyncButton />
             <PWAInstallButton />
 
             <button
@@ -380,6 +389,7 @@ export default function App() {
             onOpenPrintForSession={(s) => setPrintSession(s)}
             onDeleteSession={handleDeleteSession}
             onOpenNewSessionModal={() => setIsNewSessionOpen(true)}
+            onClearAllSessions={handleClearAllSessions}
           />
         )}
       </main>

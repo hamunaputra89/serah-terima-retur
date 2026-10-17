@@ -20,84 +20,30 @@ export const DEFAULT_SETTINGS: AppSettings = {
   autoFocus: true,
   vibrateEnabled: true,
   allowMismatch: true,
-  defaultStaffName: 'Budi (Admin Retur)',
-  defaultWarehouse: 'Gudang Pusat Jakarta',
-};
-
-// Initial realistic sample data
-const INITIAL_SAMPLE_SESSION: HandoverSession = {
-  id: 'sess-sample-01',
-  bastNumber: `BAST-RET/${new Date().getFullYear()}${String(new Date().getMonth() + 1).padStart(2, '0')}${String(new Date().getDate()).padStart(2, '0')}/001`,
-  expedition: 'spx',
-  courierName: 'Rian Pratama',
-  courierPhone: '081298765432',
-  vehiclePlate: 'B 3829 KJL',
-  warehouseStaff: 'Budi (Admin Retur)',
-  warehouseLocation: 'Hub Logistik Cakung',
-  createdAt: new Date(Date.now() - 3600000).toISOString(),
-  updatedAt: new Date(Date.now() - 1200000).toISOString(),
-  status: 'active',
-  notes: 'Retur gagal kirim COD & pembeli pindah alamat',
-  items: [
-    {
-      id: 'item-1',
-      trackingNumber: 'SPXID04829103984',
-      scannedAt: new Date(Date.now() - 3500000).toISOString(),
-      expedition: 'spx',
-      detectedExpedition: 'spx',
-      condition: 'baik',
-      note: 'Paket segel utuh',
-    },
-    {
-      id: 'item-2',
-      trackingNumber: 'SPXID04829103985',
-      scannedAt: new Date(Date.now() - 3200000).toISOString(),
-      expedition: 'spx',
-      detectedExpedition: 'spx',
-      condition: 'kemasan_rusak',
-      note: 'Kardus penyot sudut kiri',
-    },
-    {
-      id: 'item-3',
-      trackingNumber: 'SPXID04829103986',
-      scannedAt: new Date(Date.now() - 2800000).toISOString(),
-      expedition: 'spx',
-      detectedExpedition: 'spx',
-      condition: 'baik',
-    },
-    {
-      id: 'item-4',
-      trackingNumber: 'SPXID04829103990',
-      scannedAt: new Date(Date.now() - 2500000).toISOString(),
-      expedition: 'spx',
-      detectedExpedition: 'spx',
-      condition: 'segel_terbuka',
-      note: 'Lakban samping terpotong',
-    },
-    {
-      id: 'item-5',
-      trackingNumber: 'SPXID04829103991',
-      scannedAt: new Date(Date.now() - 2100000).toISOString(),
-      expedition: 'spx',
-      detectedExpedition: 'spx',
-      condition: 'baik',
-    },
-  ],
+  defaultStaffName: '',
+  defaultWarehouse: '',
 };
 
 export function loadSessions(): HandoverSession[] {
-  if (typeof window === 'undefined') return [INITIAL_SAMPLE_SESSION];
+  if (typeof window === 'undefined') return [];
   try {
     const raw = localStorage.getItem(STORAGE_KEY_SESSIONS);
     if (!raw) {
-      saveSessions([INITIAL_SAMPLE_SESSION]);
-      return [INITIAL_SAMPLE_SESSION];
+      return [];
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [INITIAL_SAMPLE_SESSION];
+    if (Array.isArray(parsed)) {
+      // If user had the initial sample session, clean it out to satisfy "buat semua data kosong"
+      const filtered = parsed.filter((s) => s.id !== 'sess-sample-01');
+      if (filtered.length !== parsed.length) {
+        saveSessions(filtered);
+      }
+      return filtered;
+    }
+    return [];
   } catch (e) {
     console.warn('Failed to load sessions', e);
-    return [INITIAL_SAMPLE_SESSION];
+    return [];
   }
 }
 
@@ -113,7 +59,8 @@ export function saveSessions(sessions: HandoverSession[]) {
 export function getActiveSessionId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return localStorage.getItem(STORAGE_KEY_ACTIVE_ID) || 'sess-sample-01';
+    const id = localStorage.getItem(STORAGE_KEY_ACTIVE_ID);
+    return id === 'sess-sample-01' ? null : id;
   } catch {
     return null;
   }
@@ -129,6 +76,16 @@ export function setActiveSessionId(id: string | null) {
     }
   } catch (e) {
     console.warn('Failed to set active session ID', e);
+  }
+}
+
+export function clearAllStorageData() {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.removeItem(STORAGE_KEY_SESSIONS);
+    localStorage.removeItem(STORAGE_KEY_ACTIVE_ID);
+  } catch (e) {
+    console.warn('Failed to clear storage', e);
   }
 }
 

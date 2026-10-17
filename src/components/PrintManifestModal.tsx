@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   X,
   Printer,
@@ -11,10 +11,17 @@ import {
   ExternalLink,
   RefreshCw,
   Info,
+  Cloud,
+  Download,
+  AlertCircle,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem } from '../types';
 import { getExpedition, CONDITION_LABELS } from '../utils/expeditions';
 import { executeSmartPrint, openPrintInNewTab } from '../utils/printer';
+import { uploadBastPdfToGoogleDrive, DriveUploadResult } from '../utils/googleDrive';
+import { generateBastPdfBlob } from '../utils/pdfGenerator';
+import { auth, googleSignIn } from '../utils/firebase';
+import { GoogleDriveSyncButton } from './GoogleDriveSyncButton';
 
 interface PrintManifestModalProps {
   isOpen: boolean;
@@ -34,6 +41,12 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   const [copied, setCopied] = useState(false);
   const [isPrinting, setIsPrinting] = useState(false);
   const [printNotice, setPrintNotice] = useState<string | null>(null);
+
+  // Google Drive synchronization state
+  const [isSyncingDrive, setIsSyncingDrive] = useState(false);
+  const [driveSyncResult, setDriveSyncResult] = useState<DriveUploadResult | null>(null);
+  const [driveSyncError, setDriveSyncError] = useState<string | null>(null);
+  const [autoDriveSync, setAutoDriveSync] = useState(true);
 
   if (!isOpen) return null;
 
@@ -68,9 +81,60 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
     return printLayout === 'thermal' ? 'printable-bast-thermal' : 'printable-bast-a4';
   };
 
+  // Upload BAST PDF directly to Google Drive
+  const handleUploadToDrive = async (isAuto = false) => {
+    setIsSyncingDrive(true);
+    setDriveSyncError(null);
+    try {
+      // Check if user is logged in
+      if (!auth.currentUser) {
+        if (!isAuto) {
+          const res = await googleSignIn();
+          if (!res?.user) return;
+        } else {
+          return;
+        }
+      }
+
+      const result = await uploadBastPdfToGoogleDrive(session);
+      setDriveSyncResult(result);
+      if (!isAuto) {
+        setPrintNotice(`File PDF berhasil tersinkron ke Google Drive: ${result.name}`);
+      }
+    } catch (err: any) {
+      console.warn('Drive sync error:', err);
+      if (!isAuto) {
+        setDriveSyncError(err?.message || 'Gagal menyinkronkan file PDF ke Google Drive.');
+      }
+    } finally {
+      setIsSyncingDrive(false);
+    }
+  };
+
+  const handleDownloadPdf = () => {
+    try {
+      const blob = generateBastPdfBlob(session);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${session.bastNumber.replace(/[\/\\?%*:|"<>]/g, '_')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error('PDF download error:', e);
+    }
+  };
+
   const handlePrint = async () => {
     setIsPrinting(true);
     setPrintNotice('Mempersiapkan dialog cetak...');
+
+    // Automatically synchronize PDF to Google Drive if user is logged in and auto-sync is enabled
+    if (autoDriveSync && auth.currentUser) {
+      handleUploadToDrive(true);
+    }
 
     try {
       const targetId = getPrintTargetId();
@@ -229,18 +293,45 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               title="Unduh file Excel / CSV"
             >
               <FileSpreadsheet className="w-4 h-4" />
-              <span>CSV</span>
+              <span className="hidden sm:inline">CSV</span>
+            </button>
+
+            {/* Unduh File PDF Langsung */}
+            <button
+              type="button"
+              onClick={handleDownloadPdf}
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-medium text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              title="Unduh file dokumen BAST sebagai PDF resmi"
+            >
+              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden sm:inline">Unduh PDF</span>
+            </button>
+
+            {/* Sinkron Google Drive Button */}
+            <button
+              type="button"
+              onClick={() => handleUploadToDrive(false)}
+              disabled={isSyncingDrive}
+              className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 shadow-sm transition cursor-pointer"
+              title="Unggah dan simpan otomatis file PDF BAST ini ke Google Drive Anda"
+            >
+              {isSyncingDrive ? (
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Cloud className="w-3.5 h-3.5 text-indigo-200" />
+              )}
+              <span>{isSyncingDrive ? 'Menyinkronkan...' : 'Sinkron ke Drive'}</span>
             </button>
 
             {/* Buka Tab Cetak (Bebas Hambatan Sandboxing) */}
             <button
               type="button"
               onClick={handleOpenNewTab}
-              className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer"
+              className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 hover:text-white font-semibold text-xs rounded-lg flex items-center gap-1.5 transition cursor-pointer"
               title="Buka tampilan cetak bersih di tab baru (bebas batasan iframe)"
             >
               <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Buka Tab Cetak</span>
+              <span className="hidden sm:inline">Tab Cetak</span>
             </button>
 
             {/* Tombol Cetak Utama */}
@@ -319,6 +410,47 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
             </div>
           </div>
         )}
+
+        {/* Google Drive Sync Notification & Auto-sync banner */}
+        <div className="print:hidden px-4 py-2 bg-slate-900 border-b border-slate-800 flex flex-wrap items-center justify-between text-xs gap-2 shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <GoogleDriveSyncButton compact />
+            <label className="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer ml-1">
+              <input
+                type="checkbox"
+                checked={autoDriveSync}
+                onChange={(e) => setAutoDriveSync(e.target.checked)}
+                className="rounded accent-amber-500 cursor-pointer"
+              />
+              <span>Sinkron otomatis PDF ke Google Drive saat klik cetak</span>
+            </label>
+          </div>
+
+          {driveSyncResult && (
+            <div className="flex items-center gap-2 bg-emerald-950/80 border border-emerald-500/40 px-2.5 py-1 rounded-lg text-emerald-300 text-[11px]">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>Tersinkron di Google Drive: <strong>{driveSyncResult.name}</strong></span>
+              {driveSyncResult.webViewLink && (
+                <a
+                  href={driveSyncResult.webViewLink}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-bold underline text-emerald-200 hover:text-white flex items-center gap-0.5 ml-1"
+                >
+                  <span>Buka File</span>
+                  <ExternalLink className="w-3 h-3" />
+                </a>
+              )}
+            </div>
+          )}
+
+          {driveSyncError && (
+            <div className="flex items-center gap-1.5 bg-rose-950/80 border border-rose-500/40 px-2.5 py-1 rounded-lg text-rose-300 text-[11px]">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+              <span>{driveSyncError}</span>
+            </div>
+          )}
+        </div>
 
         {/* Print Notice Banner */}
         {printNotice && (
@@ -569,7 +701,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                 {/* Watermark Footer Dokumen */}
                 <div className="mt-2 pt-1 border-t border-slate-200 flex justify-between items-center text-[8px] text-slate-400">
                   <span>Dokumen sah digital dicetak melalui Sistem BAST Retur Logistik</span>
-                  <span>Handcraft by Hery</span>
+                  <span>{session.bastNumber}</span>
                 </div>
               </div>
             </div>
@@ -754,7 +886,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
               <div className="mt-4 pt-1 border-t border-slate-200 flex justify-between items-center text-[8px] text-slate-400">
                 <span>Dokumen sah digital dicetak melalui Sistem BAST Retur Logistik</span>
-                <span>Handcraft by Hery</span>
+                <span>{session.bastNumber}</span>
               </div>
             </div>
           ) : (
@@ -820,7 +952,7 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               </div>
 
               <div className="mt-3 pt-1 border-t border-slate-200 text-center text-[8px] text-slate-400">
-                Handcraft by Hery
+                Dokumen Sah Digital • BAST Retur Logistik
               </div>
             </div>
           )}

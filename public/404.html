@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <title>Mengarahkan...</title>
+  <script>
+    // GitHub Pages SPA redirect to index.html
+    const path = window.location.pathname;
+    const repoMatch = path.match(/^\/([^/]+)/);
+    const repoBase = repoMatch ? '/' + repoMatch[1] + '/' : '/';
+    // If user lands on a deep path on GitHub Pages, redirect to root of repo
+    window.location.replace(window.location.origin + repoBase);
+  </script>
+</head>
+<body style="background:#0f172a;color:#f8fafc;font-family:sans-serif;display:flex;align-items:center;justify-content:center;height:100vh;margin:0;">
+  <div style="text-align:center;">
+    <p>Memuat aplikasi...</p>
+  </div>
+</body>
+</html>

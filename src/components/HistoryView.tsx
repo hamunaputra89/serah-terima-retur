@@ -22,6 +22,7 @@ interface HistoryViewProps {
   onOpenPrintForSession: (session: HandoverSession) => void;
   onDeleteSession: (id: string) => void;
   onOpenNewSessionModal: () => void;
+  onClearAllSessions?: () => void;
 }
 
 export const HistoryView: React.FC<HistoryViewProps> = ({
@@ -31,6 +32,7 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
   onOpenPrintForSession,
   onDeleteSession,
   onOpenNewSessionModal,
+  onClearAllSessions,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterExpedition, setFilterExpedition] = useState<ExpeditionId | 'all'>('all');
@@ -126,6 +128,26 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
             <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
             <span className="hidden sm:inline">Export Semua CSV</span>
           </button>
+
+          {sessions.length > 0 && onClearAllSessions && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Peringatan: Apakah Anda yakin ingin MENGHAPUS SEMUA DATA BAST dan mengosongkan seluruh riwayat? Tindakan ini tidak dapat dibatalkan.'
+                  )
+                ) {
+                  onClearAllSessions();
+                }
+              }}
+              className="px-3 py-2.5 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 text-rose-300 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+              title="Kosongkan seluruh data BAST dan resi"
+            >
+              <Trash2 className="w-4 h-4 text-rose-400" />
+              <span className="hidden sm:inline">Kosongkan Semua Data</span>
+            </button>
+          )}
 
           <button
             type="button"
