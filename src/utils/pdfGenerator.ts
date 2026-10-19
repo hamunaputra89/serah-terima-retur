@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { HandoverSession } from '../types';
-import { getExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from './expeditions';
+import { getExpedition, getItemEffectiveExpedition } from './expeditions';
 
 export function generateBastPdfBlob(session: HandoverSession): Blob {
   const doc = new jsPDF({
@@ -88,21 +88,17 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
 
   // Summary Metrics Banner
   const totalItems = session.items.length;
-  const goodItems = session.items.filter((i) => i.condition === 'baik').length;
-  const damagedItems = session.items.filter((i) => i.condition !== 'baik').length;
 
   doc.setFillColor(241, 245, 249);
   doc.roundedRect(14, currentY, pageWidth - 28, 12, 1.5, 1.5, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9);
   doc.setTextColor(15, 23, 42);
-  doc.text(`RINGKASAN:  Total Retur: ${totalItems} Paket`, 18, currentY + 7.5);
+  doc.text(`RINGKASAN:  Total Retur: ${totalItems} Paket (Koli)`, 18, currentY + 7.5);
 
-  doc.setTextColor(5, 150, 105); // emerald-600
-  doc.text(`• Kondisi Baik: ${goodItems}`, 85, currentY + 7.5);
-
-  doc.setTextColor(217, 119, 6); // amber-600
-  doc.text(`• Kemasan Rusak/Bocor: ${damagedItems}`, 135, currentY + 7.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(71, 85, 105);
+  doc.text(`• Ekspedisi: ${expName}`, 110, currentY + 7.5);
 
   currentY += 16;
 
@@ -120,7 +116,6 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
   // Items Table
   const tableData = session.items.map((item, index) => {
     const itemExp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-    const cond = CONDITION_LABELS[item.condition] || { label: item.condition };
     const scanTime = new Date(item.scannedAt).toLocaleTimeString('id-ID', {
       hour: '2-digit',
       minute: '2-digit',
@@ -132,15 +127,14 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
       item.trackingNumber,
       itemExp ? itemExp.shortName : item.expedition.toUpperCase(),
       scanTime,
-      cond.label,
       item.note || '-',
     ];
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [['No', 'Nomor Resi / AWB', 'Ekspedisi', 'Waktu Scan', 'Kondisi Paket', 'Keterangan']],
-    body: tableData.length > 0 ? tableData : [['-', 'Belum ada paket yang dipindai', '-', '-', '-', '-']],
+    head: [['No', 'Nomor Resi / AWB', 'Ekspedisi', 'Waktu Scan', 'Keterangan']],
+    body: tableData.length > 0 ? tableData : [['-', 'Belum ada paket yang dipindai', '-', '-', '-']],
     theme: 'grid',
     styles: {
       fontSize: 8,
@@ -155,20 +149,10 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
     },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10 },
-      1: { fontStyle: 'bold', cellWidth: 50 },
-      2: { halign: 'center', cellWidth: 26 },
-      3: { halign: 'center', cellWidth: 24 },
-      4: { halign: 'center', cellWidth: 32 },
-      5: { cellWidth: 'auto' },
-    },
-    didDrawCell: (data) => {
-      // Highlight damaged rows
-      if (data.section === 'body' && data.column.index === 4) {
-        const text = String(data.cell.raw);
-        if (text && !text.toLowerCase().includes('baik')) {
-          doc.setTextColor(180, 83, 9);
-        }
-      }
+      1: { fontStyle: 'bold', cellWidth: 60 },
+      2: { halign: 'center', cellWidth: 30 },
+      3: { halign: 'center', cellWidth: 30 },
+      4: { cellWidth: 'auto' },
     },
     margin: { left: 14, right: 14 },
   });

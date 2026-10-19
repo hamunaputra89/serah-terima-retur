@@ -81,16 +81,14 @@ export const GuideModal: React.FC<GuideModalProps> = ({ isOpen, onClose }) => {
             </ul>
           </div>
 
-          {/* 3. Pencatatan Kondisi Retur */}
+          {/* 3. Catatan Khusus & Deteksi Resi */}
           <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 space-y-1.5">
             <h4 className="font-bold text-white flex items-center gap-2 text-sm">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
-              3. Penandaan Paket Rusak / Bocor / Terbuka
+              3. Catatan Khusus & Deteksi Ekspedisi
             </h4>
             <p className="text-slate-400 leading-relaxed">
-              Jika paket yang diserahkan kurir dalam keadaan kardus penyot, sobek, basah, atau segel terbuka, klik tombol
-              kondisi di bawah kolom scan sebelum menembak resi atau ubah langsung pada tabel. Catatan ini akan tercetak pada
-              Berita Acara (BAST) untuk klaim ganti rugi.
+              Setiap kali scan resi, sistem otomatis mendeteksi ekspedisi kurir. Jika resi berasal dari ekspedisi yang berbeda dari sesi yang dipilih, sistem memberikan peringatan paket nyasar. Anda juga dapat menambahkan catatan khusus pada tabel bila diperlukan.
             </p>
           </div>
 

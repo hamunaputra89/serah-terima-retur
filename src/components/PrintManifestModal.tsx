@@ -16,7 +16,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem } from '../types';
-import { getExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from '../utils/expeditions';
+import { getExpedition, getItemEffectiveExpedition } from '../utils/expeditions';
 import { executeSmartPrint, openPrintInNewTab } from '../utils/printer';
 import { uploadBastPdfToGoogleDrive, DriveUploadResult } from '../utils/googleDrive';
 import { generateBastPdfBlob } from '../utils/pdfGenerator';
@@ -54,8 +54,6 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   const expeditionInfo = session.expedition !== 'all' ? getExpedition(session.expedition) : null;
 
   const totalItems = session.items.length;
-  const goodItems = session.items.filter((i) => i.condition === 'baik').length;
-  const damagedItems = session.items.filter((i) => i.condition !== 'baik').length;
 
   // Decide effective column count for 1-page mode
   const effectiveColumns =
@@ -184,13 +182,12 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   };
 
   const handleExportCSV = () => {
-    const headers = ['No', 'No Resi', 'Ekspedisi', 'Waktu Scan', 'Kondisi Paket', 'Catatan'];
+    const headers = ['No', 'No Resi', 'Ekspedisi', 'Waktu Scan', 'Catatan'];
     const rows = session.items.map((item, index) => {
       const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-      const cond = CONDITION_LABELS[item.condition].label;
       const dateStr = new Date(item.scannedAt).toLocaleString('id-ID');
       const note = item.note || '-';
-      return [index + 1, `"${item.trackingNumber}"`, `"${exp.name}"`, `"${dateStr}"`, `"${cond}"`, `"${note}"`];
+      return [index + 1, `"${item.trackingNumber}"`, `"${exp.name}"`, `"${dateStr}"`, `"${note}"`];
     });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -557,19 +554,15 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                   </div>
                 </div>
 
-                {/* 3. Ringkasan Total Paket (Pill Box Kompak) */}
-                <div className="grid grid-cols-3 gap-2 text-center mb-2.5">
-                  <div className="py-1 px-2 rounded border border-slate-400 bg-slate-100 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-600 uppercase">Total Retur</span>
-                    <span className="text-sm font-black text-slate-900">{totalItems} Paket</span>
+                {/* 3. Ringkasan Total Paket (Kompak & Rapi) */}
+                <div className="grid grid-cols-2 gap-2 text-center mb-2.5">
+                  <div className="py-1 px-3 rounded border border-slate-400 bg-slate-100 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase">TOTAL RETUR DIANGKUT</span>
+                    <span className="text-sm font-black text-slate-900">{totalItems} Paket (Koli)</span>
                   </div>
-                  <div className="py-1 px-2 rounded border border-emerald-400 bg-emerald-50 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-emerald-800 uppercase">Kondisi Baik</span>
-                    <span className="text-sm font-black text-emerald-700">{goodItems} Paket</span>
-                  </div>
-                  <div className="py-1 px-2 rounded border border-amber-400 bg-amber-50 flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-amber-800 uppercase">Rusak/Bocor</span>
-                    <span className="text-sm font-black text-amber-700">{damagedItems} Paket</span>
+                  <div className="py-1 px-3 rounded border border-slate-400 bg-slate-50 flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-700 uppercase">EKSPEDISI PENGANTAR</span>
+                    <span className="text-sm font-black text-slate-900">{expeditionInfo ? expeditionInfo.name : 'Semua Ekspedisi / Campuran'}</span>
                   </div>
                 </div>
 
@@ -612,15 +605,13 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                                 <tr className="bg-slate-800 text-white font-bold print:bg-slate-100 print:text-black">
                                   <th className="py-0.5 px-1 text-center w-6 border-r border-slate-700 print:border-slate-400 print:text-black">No</th>
                                   <th className="py-0.5 px-1 text-left border-r border-slate-700 print:border-slate-400 print:text-black">Nomor Resi</th>
-                                  <th className="py-0.5 px-1 text-left w-14 border-r border-slate-700 print:border-slate-400 print:text-black">Ekspedisi</th>
-                                  <th className="py-0.5 px-1 text-center w-14 print:text-black">Kondisi</th>
+                                  <th className="py-0.5 px-1 text-center w-16 print:border-slate-400 print:text-black">Ekspedisi</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300">
                                 {chunk.map((item, rowIdx) => {
                                   const globalIdx = itemsBefore + rowIdx + 1;
                                   const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-                                  const isDamaged = item.condition !== 'baik';
 
                                   return (
                                     <tr
@@ -630,22 +621,11 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                                       <td className={`text-center font-mono border-r border-slate-300 ${densityStyles.rowPadding}`}>
                                         {globalIdx}
                                       </td>
-                                      <td className={`font-mono font-bold text-slate-900 border-r border-slate-300 ${densityStyles.rowPadding} truncate max-w-[120px]`}>
+                                      <td className={`font-mono font-bold text-slate-900 border-r border-slate-300 ${densityStyles.rowPadding} truncate`}>
                                         {item.trackingNumber}
                                       </td>
-                                      <td className={`font-semibold border-r border-slate-300 ${densityStyles.rowPadding} truncate`}>
+                                      <td className={`font-semibold text-center border-slate-300 ${densityStyles.rowPadding} truncate`}>
                                         {exp.shortName}
-                                      </td>
-                                      <td className={`text-center ${densityStyles.rowPadding}`}>
-                                        <span
-                                          className={`inline-block px-1 rounded text-[8px] font-bold ${
-                                            isDamaged
-                                              ? 'bg-amber-100 text-amber-900 border border-amber-300'
-                                              : 'text-slate-700'
-                                          }`}
-                                        >
-                                          {isDamaged ? 'RUSAK' : 'BAIK'}
-                                        </span>
                                       </td>
                                     </tr>
                                   );
@@ -795,18 +775,14 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               </div>
 
               {/* Summary Stats */}
-              <div className="grid grid-cols-3 gap-3 text-center mb-4 text-xs">
+              <div className="grid grid-cols-2 gap-3 text-center mb-4 text-xs">
                 <div className="p-2 rounded border border-slate-300 bg-slate-100">
                   <div className="text-[10px] uppercase font-bold text-slate-500">Total Paket Retur</div>
                   <div className="text-lg font-extrabold text-slate-900">{totalItems} Paket</div>
                 </div>
-                <div className="p-2 rounded border border-emerald-300 bg-emerald-50">
-                  <div className="text-[10px] uppercase font-bold text-emerald-800">Kondisi Baik/Utuh</div>
-                  <div className="text-lg font-extrabold text-emerald-700">{goodItems} Paket</div>
-                </div>
-                <div className="p-2 rounded border border-amber-300 bg-amber-50">
-                  <div className="text-[10px] uppercase font-bold text-amber-800">Kondisi Rusak/Bocor</div>
-                  <div className="text-lg font-extrabold text-amber-700">{damagedItems} Paket</div>
+                <div className="p-2 rounded border border-slate-300 bg-slate-50">
+                  <div className="text-[10px] uppercase font-bold text-slate-500">Ekspedisi Pengantar</div>
+                  <div className="text-lg font-extrabold text-slate-900">{expeditionInfo ? expeditionInfo.name : 'Semua Ekspedisi'}</div>
                 </div>
               </div>
 
@@ -817,16 +793,14 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                     <tr className="bg-slate-100 text-slate-800 font-bold">
                       <th className="border border-slate-300 p-2 text-center w-10">No</th>
                       <th className="border border-slate-300 p-2 text-left">Nomor Resi / AWB</th>
-                      <th className="border border-slate-300 p-2 text-left w-24">Ekspedisi</th>
-                      <th className="border border-slate-300 p-2 text-left w-32">Waktu Scan</th>
-                      <th className="border border-slate-300 p-2 text-center w-28">Kondisi</th>
+                      <th className="border border-slate-300 p-2 text-left w-28">Ekspedisi</th>
+                      <th className="border border-slate-300 p-2 text-left w-36">Waktu Scan</th>
                       <th className="border border-slate-300 p-2 text-left">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody>
                     {session.items.map((item, idx) => {
                       const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-                      const cond = CONDITION_LABELS[item.condition];
                       return (
                         <tr
                           key={item.id}
@@ -845,17 +819,6 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                               minute: '2-digit',
                               second: '2-digit',
                             })}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 text-center">
-                            <span
-                              className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-semibold ${
-                                item.condition === 'baik'
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-amber-100 text-amber-800 font-bold'
-                              }`}
-                            >
-                              {cond.label}
-                            </span>
                           </td>
                           <td className="border border-slate-300 p-1.5 text-slate-600 text-[11px]">
                             {item.note || '-'}
@@ -926,24 +889,22 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                 <span>{totalItems} PAKET</span>
               </div>
 
-              <div className="py-1 text-[10px] text-slate-600 flex justify-between">
-                <span>- Kondisi Baik : {goodItems}</span>
-                <span>- Rusak/Bocor  : {damagedItems}</span>
-              </div>
-
               {/* List of tracking numbers */}
               <div className="py-2 border-b border-dashed border-slate-400 space-y-1">
                 <p className="font-bold text-[10px]">DAFTAR RESI:</p>
-                {session.items.map((item, idx) => (
-                  <div key={item.id} className="flex justify-between text-[10px]">
-                    <span>
-                      {idx + 1}. {item.trackingNumber}
-                    </span>
-                    <span className={item.condition !== 'baik' ? 'font-bold text-red-600' : ''}>
-                      {item.condition === 'baik' ? 'OK' : 'RUSAK'}
-                    </span>
-                  </div>
-                ))}
+                {session.items.map((item, idx) => {
+                  const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
+                  return (
+                    <div key={item.id} className="flex justify-between text-[10px]">
+                      <span>
+                        {idx + 1}. {item.trackingNumber}
+                      </span>
+                      <span className="font-semibold text-slate-600">
+                        {exp.shortName}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="pt-4 grid grid-cols-2 text-center text-[10px] gap-2">

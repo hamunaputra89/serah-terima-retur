@@ -38,7 +38,7 @@ export interface ReturnItem {
   scannedAt: string; // ISO string
   expedition: ExpeditionId;
   detectedExpedition: ExpeditionId;
-  condition: PackageCondition;
+  condition?: PackageCondition | string;
   note?: string;
   isMismatch?: boolean; // scanned resi belongs to a different courier than the locked session
   barcodeType?: '1d' | '2d_kotak';

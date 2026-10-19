@@ -74,7 +74,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
       'Petugas Gudang',
       'No Resi',
       'Ekspedisi Resi',
-      'Kondisi',
       'Waktu Scan',
     ];
 
@@ -90,7 +89,6 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           `"${s.warehouseStaff}"`,
           `"${item.trackingNumber}"`,
           `"${exp.shortName}"`,
-          `"${item.condition}"`,
           `"${new Date(item.scannedAt).toLocaleString('id-ID')}"`,
         ]);
       });
@@ -233,8 +231,8 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
           {filteredSessions.map((sess) => {
             const exp = sess.expedition !== 'all' ? getExpedition(sess.expedition) : null;
             const isActive = sess.id === activeSessionId;
-            const goodCount = sess.items.filter((i) => i.condition === 'baik').length;
-            const damagedCount = sess.items.filter((i) => i.condition !== 'baik').length;
+            const matchCount = sess.items.filter((i) => !i.isMismatch).length;
+            const mismatchCount = sess.items.filter((i) => i.isMismatch).length;
 
             return (
               <div
@@ -308,12 +306,12 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       <span className="font-mono font-bold text-white text-base">{sess.items.length}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] text-emerald-500 font-medium">BAIK</span>
-                      <span className="font-mono font-bold text-emerald-400 text-base">{goodCount}</span>
+                      <span className="block text-[10px] text-emerald-500 font-medium">SESUAI</span>
+                      <span className="font-mono font-bold text-emerald-400 text-base">{matchCount}</span>
                     </div>
                     <div>
-                      <span className="block text-[10px] text-amber-500 font-medium">RUSAK</span>
-                      <span className="font-mono font-bold text-amber-400 text-base">{damagedCount}</span>
+                      <span className="block text-[10px] text-rose-500 font-medium">NYASAR</span>
+                      <span className="font-mono font-bold text-rose-400 text-base">{mismatchCount}</span>
                     </div>
                   </div>
                 </div>

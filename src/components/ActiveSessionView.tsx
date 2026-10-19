@@ -18,8 +18,8 @@ import {
   Layers,
   QrCode,
 } from 'lucide-react';
-import { HandoverSession, ReturnItem, PackageCondition, ExpeditionId } from '../types';
-import { getExpedition, detectExpedition, CONDITION_LABELS, getItemEffectiveExpedition } from '../utils/expeditions';
+import { HandoverSession, ReturnItem, ExpeditionId } from '../types';
+import { getExpedition, detectExpedition, getItemEffectiveExpedition } from '../utils/expeditions';
 import { ScannerInput } from './ScannerInput';
 import { SessionSummaryCards } from './SessionSummaryCards';
 import { ConfirmModal } from './ConfirmModal';
@@ -53,7 +53,7 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
   voiceEnabled,
   onToggleVoice,
 }) => {
-  const [filterCondition, setFilterCondition] = useState<PackageCondition | 'all' | 'mismatch'>('all');
+  const [filterType, setFilterType] = useState<'all' | 'match' | 'mismatch'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
@@ -74,7 +74,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
   // Handle barcode scanned from ScannerInput
   const handleScanItem = (
     trackingNumber: string,
-    condition: PackageCondition,
     note?: string,
     barcodeType?: '1d' | '2d_kotak'
   ): 'added' | 'duplicate' | 'mismatch' => {
@@ -105,7 +104,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
       scannedAt: new Date().toISOString(),
       expedition: session.expedition === 'all' ? detectedId : session.expedition,
       detectedExpedition: detectedId,
-      condition,
       note,
       isMismatch,
       barcodeType,
@@ -155,19 +153,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
     });
   };
 
-  const handleUpdateCondition = (itemId: string, newCondition: PackageCondition) => {
-    const updatedItems = session.items.map((item) => {
-      if (item.id === itemId) {
-        return { ...item, condition: newCondition };
-      }
-      return item;
-    });
-    onUpdateSession({
-      ...session,
-      updatedAt: new Date().toISOString(),
-      items: updatedItems,
-    });
-  };
 
   const handleSaveNote = (itemId: string) => {
     const updatedItems = session.items.map((item) => {
@@ -224,12 +209,8 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
 
   // Filtered items
   const filteredItems = session.items.filter((item) => {
-    // Condition filter
-    if (filterCondition === 'mismatch') {
-      if (!item.isMismatch) return false;
-    } else if (filterCondition !== 'all') {
-      if (item.condition !== filterCondition) return false;
-    }
+    if (filterType === 'mismatch' && !item.isMismatch) return false;
+    if (filterType === 'match' && item.isMismatch) return false;
 
     // Search filter
     if (searchQuery.trim()) {
@@ -365,8 +346,8 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
       {/* Live Stat Counters & Filter Controls */}
       <SessionSummaryCards
         items={session.items}
-        filterCondition={filterCondition}
-        onSelectFilter={setFilterCondition}
+        filterType={filterType}
+        onSelectFilter={setFilterType}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
       />
@@ -409,7 +390,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
                   <th className="py-3 px-4 w-12 text-center">No</th>
                   <th className="py-3 px-4">Nomor Resi</th>
                   <th className="py-3 px-4">Ekspedisi</th>
-                  <th className="py-3 px-4">Kondisi Kemasan</th>
                   <th className="py-3 px-4">Waktu Scan</th>
                   <th className="py-3 px-4">Catatan</th>
                   <th className="py-3 px-4 w-20 text-center">Aksi</th>
@@ -418,7 +398,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
               <tbody className="divide-y divide-slate-800/60">
                 {filteredItems.map((item, index) => {
                   const detectedInfo = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-                  const conditionInfo = CONDITION_LABELS[item.condition];
                   const isBeingEdited = editingItemId === item.id;
 
                   return (
@@ -485,26 +464,6 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
                         </div>
                       </td>
 
-                      {/* Kondisi Kemasan (Quick Edit) */}
-                      <td className="py-3 px-4">
-                        <select
-                          value={item.condition}
-                          onChange={(e) =>
-                            handleUpdateCondition(item.id, e.target.value as PackageCondition)
-                          }
-                          className={`text-xs rounded-lg px-2 py-1 font-medium border focus:outline-none focus:ring-1 focus:ring-amber-400 ${
-                            item.condition === 'baik'
-                              ? 'bg-emerald-950/40 text-emerald-300 border-emerald-500/30'
-                              : 'bg-amber-950/40 text-amber-300 border-amber-500/30'
-                          }`}
-                        >
-                          {(Object.keys(CONDITION_LABELS) as PackageCondition[]).map((cKey) => (
-                            <option key={cKey} value={cKey} className="bg-slate-900 text-slate-200">
-                              {CONDITION_LABELS[cKey].label}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
 
                       {/* Waktu Scan */}
                       <td className="py-3 px-4 text-slate-400 font-mono text-[11px]">

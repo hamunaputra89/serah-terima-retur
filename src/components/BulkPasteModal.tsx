@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { X, FileSpreadsheet, CheckCircle, AlertTriangle, ArrowRight } from 'lucide-react';
-import { PackageCondition } from '../types';
 import { cleanTrackingNumber, detectExpedition, getExpedition, extractTrackingNumberFromBarcodeKotak } from '../utils/expeditions';
 
 interface BulkPasteModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportList: (items: Array<{ trackingNumber: string; condition: PackageCondition; note?: string }>) => {
+  onImportList: (items: Array<{ trackingNumber: string; note?: string }>) => {
     addedCount: number;
     duplicateCount: number;
   };
@@ -18,7 +17,6 @@ export const BulkPasteModal: React.FC<BulkPasteModalProps> = ({
   onImportList,
 }) => {
   const [textInput, setTextInput] = useState('');
-  const [defaultCondition, setDefaultCondition] = useState<PackageCondition>('baik');
   const [importResult, setImportResult] = useState<{ added: number; dupes: number } | null>(null);
 
   if (!isOpen) return null;
@@ -37,7 +35,6 @@ export const BulkPasteModal: React.FC<BulkPasteModalProps> = ({
 
     const payload = uniqueResi.map((resi) => ({
       trackingNumber: resi,
-      condition: defaultCondition,
       note: 'Input bulk / daftar',
     }));
 
@@ -91,20 +88,6 @@ export const BulkPasteModal: React.FC<BulkPasteModalProps> = ({
             />
           </div>
 
-          <div className="flex items-center gap-2">
-            <label className="text-xs text-slate-300 shrink-0">Set Kondisi Awal:</label>
-            <select
-              value={defaultCondition}
-              onChange={(e) => setDefaultCondition(e.target.value as PackageCondition)}
-              className="bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200 px-3 py-1.5 focus:outline-none focus:border-amber-400"
-            >
-              <option value="baik">Kondisi Baik / Utuh</option>
-              <option value="kemasan_rusak">Kemasan Rusak / Penyot</option>
-              <option value="basah_bocor">Basah / Bocor</option>
-              <option value="label_pudar">Label / Barcode Pudar</option>
-              <option value="segel_terbuka">Segel Terbuka</option>
-            </select>
-          </div>
 
           {importResult && (
             <div className="p-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs flex items-center justify-between">

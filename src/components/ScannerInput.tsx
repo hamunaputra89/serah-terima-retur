@@ -12,11 +12,10 @@ import {
   QrCode,
   X,
 } from 'lucide-react';
-import { ExpeditionId, PackageCondition, ScanFeedback, ReturnItem } from '../types';
+import { ExpeditionId, ScanFeedback, ReturnItem } from '../types';
 import {
   detectExpedition,
   getExpedition,
-  CONDITION_LABELS,
   extractTrackingNumberFromBarcodeKotak,
 } from '../utils/expeditions';
 import {
@@ -30,7 +29,6 @@ interface ScannerInputProps {
   sessionExpedition: ExpeditionId | 'all';
   onScanSuccess: (
     trackingNumber: string,
-    condition: PackageCondition,
     note?: string,
     barcodeType?: '1d' | '2d_kotak'
   ) => 'added' | 'duplicate' | 'mismatch';
@@ -54,7 +52,6 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
   onToggleVoice,
 }) => {
   const [inputValue, setInputValue] = useState('');
-  const [selectedCondition, setSelectedCondition] = useState<PackageCondition>('baik');
   const [customNote, setCustomNote] = useState('');
   const [feedback, setFeedback] = useState<(ScanFeedback & { isKotak?: boolean }) | null>(null);
   const [autoFocusEnabled, setAutoFocusEnabled] = useState(true);
@@ -104,7 +101,6 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
     const barcodeType: '1d' | '2d_kotak' = extracted.isFrom2D ? '2d_kotak' : '1d';
     const result = onScanSuccess(
       cleaned,
-      selectedCondition,
       customNote.trim() || undefined,
       barcodeType
     );
@@ -151,10 +147,9 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
       });
     }
 
-    // Instantly reset input and notes, and reset condition back to 'baik'
+    // Instantly reset input and notes
     setInputValue('');
     setCustomNote('');
-    setSelectedCondition('baik');
 
     // Immediate focus for the next scan without any delay
     inputRef.current?.focus();
@@ -371,59 +366,6 @@ export const ScannerInput: React.FC<ScannerInputProps> = ({
         </div>
       )}
 
-      {/* Package Condition Selection (Simple and compact) */}
-      <div className="mt-3 pt-3 border-t border-slate-700/60">
-        <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="text-xs font-medium text-slate-300">
-            Kondisi Paket Retur:
-          </span>
-          {selectedCondition !== 'baik' && (
-            <button
-              type="button"
-              onClick={() => setSelectedCondition('baik')}
-              className="text-[11px] text-amber-400 hover:underline cursor-pointer"
-            >
-              Kembali ke Baik (Normal)
-            </button>
-          )}
-        </div>
-
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-          {(Object.keys(CONDITION_LABELS) as PackageCondition[]).map((condKey) => {
-            const info = CONDITION_LABELS[condKey];
-            const isSelected = selectedCondition === condKey;
-            return (
-              <button
-                key={condKey}
-                type="button"
-                onClick={() => {
-                  setSelectedCondition(condKey);
-                  inputRef.current?.focus();
-                }}
-                className={`px-2 py-1.5 rounded-lg text-xs font-medium border text-center transition cursor-pointer truncate ${
-                  isSelected
-                    ? 'bg-amber-500/20 border-amber-400 text-white font-bold ring-1 ring-amber-500/30'
-                    : 'bg-slate-900/60 border-slate-700 text-slate-300 hover:border-slate-600'
-                }`}
-              >
-                {info.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {selectedCondition !== 'baik' && (
-          <div className="mt-2">
-            <input
-              type="text"
-              value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              placeholder="Catatan kondisi paket (cth: kardus basah, bocor di pojok)..."
-              className="w-full px-3 py-1.5 text-xs bg-slate-900 border border-amber-500/40 rounded-lg text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-amber-400"
-            />
-          </div>
-        )}
-      </div>
 
       {/* Footer helper */}
       <div className="mt-2.5 flex items-center justify-between text-[11px] text-slate-400 pt-1">

@@ -23,9 +23,8 @@ import {
   UploadCloud,
   ImageIcon,
 } from 'lucide-react';
-import { PackageCondition, ReturnItem } from '../types';
+import { ReturnItem } from '../types';
 import {
-  CONDITION_LABELS,
   extractTrackingNumberFromBarcodeKotak,
   getExpedition,
   detectExpedition,
@@ -35,7 +34,6 @@ import { copyToClipboard } from '../utils/clipboard';
 interface CameraScanLog {
   id: string;
   trackingNumber: string;
-  condition: PackageCondition;
   isKotak: boolean;
   status: 'added' | 'duplicate' | 'mismatch';
   timestamp: string;
@@ -45,8 +43,7 @@ interface CameraScannerModalProps {
   isOpen: boolean;
   onClose: () => void;
   onScanResult: (
-    trackingNumber: string,
-    condition: PackageCondition
+    trackingNumber: string
   ) => 'added' | 'duplicate' | 'mismatch' | void;
   sessionItems?: ReturnItem[];
 }
@@ -57,7 +54,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
   onScanResult,
   sessionItems = [],
 }) => {
-  const [selectedCondition, setSelectedCondition] = useState<PackageCondition>('baik');
   const [scanShape, setScanShape] = useState<'kotak' | 'garis' | 'auto'>('auto');
   const [activeTab, setActiveTab] = useState<'live' | 'upload'>('live');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -129,7 +125,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
       }
       lastScannedRef.current = { resi: finalResi, time: now };
 
-      const resultStatus = (onScanResult(finalResi, selectedCondition) || 'added') as
+      const resultStatus = (onScanResult(finalResi) || 'added') as
         | 'added'
         | 'duplicate'
         | 'mismatch';
@@ -153,7 +149,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         {
           id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
           trackingNumber: finalResi,
-          condition: selectedCondition,
           isKotak: extracted.isFrom2D,
           status: resultStatus,
           timestamp: new Date().toLocaleTimeString('id-ID', {
@@ -165,7 +160,7 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
         ...prev,
       ]);
     },
-    [onScanResult, selectedCondition]
+    [onScanResult]
   );
 
   const startScanner = useCallback(async () => {
@@ -769,45 +764,6 @@ export const CameraScannerModal: React.FC<CameraScannerModalProps> = ({
             )}
           </div>
 
-          {/* Compact Condition Selector */}
-          <div className="p-3 bg-slate-900/90">
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-xs font-semibold text-slate-300">
-                Kondisi Paket Retur:
-              </label>
-              <span className="text-[11px] text-amber-400 font-medium">
-                {CONDITION_LABELS[selectedCondition].label}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              {(
-                [
-                  'baik',
-                  'kemasan_rusak',
-                  'segel_terbuka',
-                  'basah_bocor',
-                  'label_pudar',
-                  'indikasi_tertukar',
-                ] as PackageCondition[]
-              ).map((cond) => {
-                const isSelected = selectedCondition === cond;
-                return (
-                  <button
-                    key={cond}
-                    type="button"
-                    onClick={() => setSelectedCondition(cond)}
-                    className={`px-2 py-1.5 rounded-lg text-xs font-medium border text-center transition cursor-pointer truncate ${
-                      isSelected
-                        ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm font-bold'
-                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:border-slate-600'
-                    }`}
-                  >
-                    {CONDITION_LABELS[cond].label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Simple List of Scanned Resi in this Session */}
           <div className="p-3.5 bg-slate-950">

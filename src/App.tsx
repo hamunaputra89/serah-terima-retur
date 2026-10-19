@@ -12,7 +12,7 @@ import {
   History,
   CheckCircle2,
 } from 'lucide-react';
-import { HandoverSession, PackageCondition } from './types';
+import { HandoverSession } from './types';
 import { detectExpedition, extractTrackingNumberFromBarcodeKotak } from './utils/expeditions';
 import {
   loadSessions,
@@ -132,7 +132,7 @@ export default function App() {
   };
 
   const handleBulkImport = (
-    items: Array<{ trackingNumber: string; condition: PackageCondition; note?: string }>
+    items: Array<{ trackingNumber: string; note?: string }>
   ) => {
     if (!activeSession) return { addedCount: 0, duplicateCount: 0 };
 
@@ -165,7 +165,6 @@ export default function App() {
           expedition:
             activeSession.expedition === 'all' ? detected : activeSession.expedition,
           detectedExpedition: detected,
-          condition: item.condition,
           note: item.note,
           isMismatch,
         });
@@ -185,8 +184,7 @@ export default function App() {
   };
 
   const handleCameraScanResult = (
-    trackingNumber: string,
-    condition: PackageCondition
+    trackingNumber: string
   ): 'added' | 'duplicate' | 'mismatch' | void => {
     if (!activeSession) return;
 
@@ -226,7 +224,6 @@ export default function App() {
       expedition:
         activeSession.expedition === 'all' ? detectedId : activeSession.expedition,
       detectedExpedition: detectedId,
-      condition,
       isMismatch,
       barcodeType: (extracted.isFrom2D ? '2d_kotak' : '1d') as '1d' | '2d_kotak',
     };
