@@ -28,12 +28,14 @@ interface PrintManifestModalProps {
   isOpen: boolean;
   onClose: () => void;
   session: HandoverSession;
+  onUpdateSession?: (session: HandoverSession) => void;
 }
 
 export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   isOpen,
   onClose,
   session,
+  onUpdateSession,
 }) => {
   // Default to 1-page A4 format
   const [printLayout, setPrintLayout] = useState<'a4_1page' | 'a4_full' | 'thermal'>('a4_1page');
@@ -45,9 +47,53 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
   // Google Drive synchronization state
   const [isSyncingDrive, setIsSyncingDrive] = useState(false);
-  const [driveSyncResult, setDriveSyncResult] = useState<DriveUploadResult | null>(null);
+  const [driveSyncResult, setDriveSyncResult] = useState<DriveUploadResult | null>(
+    session.driveFileId
+      ? {
+          fileId: session.driveFileId,
+          name: `${session.bastNumber.replace(/[\/\\?%*:|"<>]/g, '_')}.pdf`,
+          webViewLink: session.driveWebViewLink,
+        }
+      : null
+  );
   const [driveSyncError, setDriveSyncError] = useState<string | null>(null);
   const [autoDriveSync, setAutoDriveSync] = useState(true);
+
+  // Auto-sync PDF to Google Drive in background immediately when modal opens
+  useEffect(() => {
+    if (!isOpen || session.items.length === 0) return;
+
+    let isMounted = true;
+    getAccessToken().then((token) => {
+      if (token && !session.driveFileId && isMounted) {
+        setIsSyncingDrive(true);
+        uploadBastPdfToGoogleDrive(session, token)
+          .then((res) => {
+            if (!isMounted) return;
+            setDriveSyncResult(res);
+            setPrintNotice(`BAST otomatis tersinkron ke Google Drive: ${res.name}`);
+            if (onUpdateSession) {
+              onUpdateSession({
+                ...session,
+                driveFileId: res.fileId,
+                driveWebViewLink: res.webViewLink,
+                driveSyncedAt: new Date().toISOString(),
+              });
+            }
+          })
+          .catch((err) => {
+            console.warn('Background auto sync failed:', err);
+          })
+          .finally(() => {
+            if (isMounted) setIsSyncingDrive(false);
+          });
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, session.id]);
 
   if (!isOpen) return null;
 
@@ -105,6 +151,14 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
 
       const result = await uploadBastPdfToGoogleDrive(session, token);
       setDriveSyncResult(result);
+      if (onUpdateSession) {
+        onUpdateSession({
+          ...session,
+          driveFileId: result.fileId,
+          driveWebViewLink: result.webViewLink,
+          driveSyncedAt: new Date().toISOString(),
+        });
+      }
       if (!isAuto) {
         setPrintNotice(`File PDF berhasil tersinkron ke Google Drive: ${result.name}`);
       }
@@ -182,12 +236,9 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
   };
 
   const handleExportCSV = () => {
-    const headers = ['No', 'No Resi', 'Ekspedisi', 'Waktu Scan', 'Catatan'];
+    const headers = ['No', 'Nomor Resi / AWB'];
     const rows = session.items.map((item, index) => {
-      const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-      const dateStr = new Date(item.scannedAt).toLocaleString('id-ID');
-      const note = item.note || '-';
-      return [index + 1, `"${item.trackingNumber}"`, `"${exp.name}"`, `"${dateStr}"`, `"${note}"`];
+      return [index + 1, `"${item.trackingNumber}"`];
     });
 
     const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map((e) => e.join(','))].join('\n');
@@ -603,15 +654,13 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                             <table className={`w-full border-collapse ${densityStyles.tableText}`}>
                               <thead>
                                 <tr className="bg-slate-800 text-white font-bold print:bg-slate-100 print:text-black">
-                                  <th className="py-0.5 px-1 text-center w-6 border-r border-slate-700 print:border-slate-400 print:text-black">No</th>
-                                  <th className="py-0.5 px-1 text-left border-r border-slate-700 print:border-slate-400 print:text-black">Nomor Resi</th>
-                                  <th className="py-0.5 px-1 text-center w-16 print:border-slate-400 print:text-black">Ekspedisi</th>
+                                  <th className="py-0.5 px-1 text-center w-7 border-r border-slate-700 print:border-slate-400 print:text-black">No</th>
+                                  <th className="py-0.5 px-2 text-left print:border-slate-400 print:text-black">Nomor Resi / AWB</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300">
                                 {chunk.map((item, rowIdx) => {
                                   const globalIdx = itemsBefore + rowIdx + 1;
-                                  const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
 
                                   return (
                                     <tr
@@ -621,11 +670,8 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                                       <td className={`text-center font-mono border-r border-slate-300 ${densityStyles.rowPadding}`}>
                                         {globalIdx}
                                       </td>
-                                      <td className={`font-mono font-bold text-slate-900 border-r border-slate-300 ${densityStyles.rowPadding} truncate`}>
+                                      <td className={`font-mono font-bold text-slate-900 ${densityStyles.rowPadding} truncate tracking-wide`}>
                                         {item.trackingNumber}
-                                      </td>
-                                      <td className={`font-semibold text-center border-slate-300 ${densityStyles.rowPadding} truncate`}>
-                                        {exp.shortName}
                                       </td>
                                     </tr>
                                   );
@@ -791,37 +837,22 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
                 <table className="w-full border-collapse border border-slate-300 text-xs">
                   <thead>
                     <tr className="bg-slate-100 text-slate-800 font-bold">
-                      <th className="border border-slate-300 p-2 text-center w-10">No</th>
+                      <th className="border border-slate-300 p-2 text-center w-14">No</th>
                       <th className="border border-slate-300 p-2 text-left">Nomor Resi / AWB</th>
-                      <th className="border border-slate-300 p-2 text-left w-28">Ekspedisi</th>
-                      <th className="border border-slate-300 p-2 text-left w-36">Waktu Scan</th>
-                      <th className="border border-slate-300 p-2 text-left">Keterangan</th>
                     </tr>
                   </thead>
                   <tbody>
                     {session.items.map((item, idx) => {
-                      const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
                       return (
                         <tr
                           key={item.id}
                           className={idx % 2 === 0 ? 'bg-white' : 'bg-slate-50/70'}
                         >
-                          <td className="border border-slate-300 p-1.5 text-center font-mono text-slate-500">
+                          <td className="border border-slate-300 p-2 text-center font-mono text-slate-500">
                             {idx + 1}
                           </td>
-                          <td className="border border-slate-300 p-1.5 font-mono font-bold text-slate-900 tracking-wider">
+                          <td className="border border-slate-300 p-2 font-mono font-bold text-slate-900 tracking-wider text-sm">
                             {item.trackingNumber}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 font-medium">{exp.shortName}</td>
-                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[11px]">
-                            {new Date(item.scannedAt).toLocaleTimeString('id-ID', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                              second: '2-digit',
-                            })}
-                          </td>
-                          <td className="border border-slate-300 p-1.5 text-slate-600 text-[11px]">
-                            {item.note || '-'}
                           </td>
                         </tr>
                       );
@@ -892,19 +923,11 @@ export const PrintManifestModal: React.FC<PrintManifestModalProps> = ({
               {/* List of tracking numbers */}
               <div className="py-2 border-b border-dashed border-slate-400 space-y-1">
                 <p className="font-bold text-[10px]">DAFTAR RESI:</p>
-                {session.items.map((item, idx) => {
-                  const exp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-                  return (
-                    <div key={item.id} className="flex justify-between text-[10px]">
-                      <span>
-                        {idx + 1}. {item.trackingNumber}
-                      </span>
-                      <span className="font-semibold text-slate-600">
-                        {exp.shortName}
-                      </span>
-                    </div>
-                  );
-                })}
+                {session.items.map((item, idx) => (
+                  <div key={item.id} className="text-[10px] font-mono font-bold text-slate-900 py-0.5 border-b border-dotted border-slate-200">
+                    {idx + 1}. {item.trackingNumber}
+                  </div>
+                ))}
               </div>
 
               <div className="pt-4 grid grid-cols-2 text-center text-[10px] gap-2">

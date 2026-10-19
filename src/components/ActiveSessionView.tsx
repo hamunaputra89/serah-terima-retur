@@ -17,6 +17,7 @@ import {
   Search,
   Layers,
   QrCode,
+  Cloud,
 } from 'lucide-react';
 import { HandoverSession, ReturnItem, ExpeditionId } from '../types';
 import { getExpedition, detectExpedition, getItemEffectiveExpedition } from '../utils/expeditions';
@@ -306,6 +307,19 @@ export const ActiveSessionView: React.FC<ActiveSessionViewProps> = ({
               <Printer className="w-4 h-4 text-amber-400" />
               <span>Cetak BAST & Struk</span>
             </button>
+
+            {session.driveWebViewLink && (
+              <a
+                href={session.driveWebViewLink}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3.5 py-2 bg-emerald-950/40 hover:bg-emerald-900/50 text-emerald-300 border border-emerald-500/40 text-xs font-semibold rounded-xl flex items-center gap-1.5 transition shadow-sm"
+                title="Buka file PDF BAST ini di Google Drive"
+              >
+                <Cloud className="w-4 h-4 text-emerald-400" />
+                <span>Lihat di Drive</span>
+              </a>
+            )}
 
             {session.status === 'active' && (
               <button

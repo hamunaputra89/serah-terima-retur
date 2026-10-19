@@ -58,6 +58,9 @@ export interface HandoverSession {
   status: 'active' | 'completed';
   notes?: string;
   items: ReturnItem[];
+  driveFileId?: string;
+  driveWebViewLink?: string;
+  driveSyncedAt?: string;
 }
 
 export interface ScanFeedback {

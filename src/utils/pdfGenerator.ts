@@ -113,31 +113,21 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
     currentY += 11;
   }
 
-  // Items Table
+  // Items Table (Hanya No dan Nomor Resi / AWB sesuai instruksi)
   const tableData = session.items.map((item, index) => {
-    const itemExp = getItemEffectiveExpedition(item.detectedExpedition || item.expedition, session.expedition);
-    const scanTime = new Date(item.scannedAt).toLocaleTimeString('id-ID', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    });
-
     return [
       String(index + 1),
       item.trackingNumber,
-      itemExp ? itemExp.shortName : item.expedition.toUpperCase(),
-      scanTime,
-      item.note || '-',
     ];
   });
 
   autoTable(doc, {
     startY: currentY,
-    head: [['No', 'Nomor Resi / AWB', 'Ekspedisi', 'Waktu Scan', 'Keterangan']],
-    body: tableData.length > 0 ? tableData : [['-', 'Belum ada paket yang dipindai', '-', '-', '-']],
+    head: [['No', 'Nomor Resi / AWB']],
+    body: tableData.length > 0 ? tableData : [['-', 'Belum ada paket yang dipindai']],
     theme: 'grid',
     styles: {
-      fontSize: 8,
+      fontSize: 9,
       cellPadding: 2.2,
       font: 'helvetica',
     },
@@ -145,14 +135,11 @@ export function generateBastPdfBlob(session: HandoverSession): Blob {
       fillColor: [15, 23, 42],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      halign: 'center',
+      halign: 'left',
     },
     columnStyles: {
-      0: { halign: 'center', cellWidth: 10 },
-      1: { fontStyle: 'bold', cellWidth: 60 },
-      2: { halign: 'center', cellWidth: 30 },
-      3: { halign: 'center', cellWidth: 30 },
-      4: { cellWidth: 'auto' },
+      0: { halign: 'center', cellWidth: 16 },
+      1: { fontStyle: 'bold', cellWidth: 'auto' },
     },
     margin: { left: 14, right: 14 },
   });

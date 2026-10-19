@@ -11,6 +11,7 @@ import {
   ExternalLink,
   Plus,
   Package,
+  Cloud,
 } from 'lucide-react';
 import { HandoverSession, ExpeditionId } from '../types';
 import { EXPEDITIONS, getExpedition, getItemEffectiveExpedition } from '../utils/expeditions';
@@ -328,6 +329,18 @@ export const HistoryView: React.FC<HistoryViewProps> = ({
                       <Printer className="w-3.5 h-3.5 text-amber-400" />
                       <span>Cetak BAST</span>
                     </button>
+                    {sess.driveWebViewLink && (
+                      <a
+                        href={sess.driveWebViewLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="px-2.5 py-1.5 rounded-lg bg-emerald-950/50 hover:bg-emerald-900/60 border border-emerald-500/40 text-emerald-300 text-xs font-medium flex items-center gap-1 transition"
+                        title="Buka PDF di Google Drive"
+                      >
+                        <Cloud className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="hidden sm:inline">Drive</span>
+                      </a>
+                    )}
                     <button
                       type="button"
                       onClick={() => {

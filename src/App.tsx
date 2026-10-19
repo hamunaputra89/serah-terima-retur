@@ -34,6 +34,8 @@ import { GuideModal } from './components/GuideModal';
 import { PWAInstallButton } from './components/PWAInstallButton';
 import { OfflineIndicator } from './components/OfflineIndicator';
 import { GoogleDriveSyncButton } from './components/GoogleDriveSyncButton';
+import { uploadBastPdfToGoogleDrive } from './utils/googleDrive';
+import { getAccessToken } from './utils/firebase';
 import { playClickBeep } from './utils/audio';
 
 export default function App() {
@@ -41,6 +43,7 @@ export default function App() {
   const [activeSessionId, setActiveId] = useState<string | null>(() => getActiveSessionId());
   const [settings, setSettings] = useState<AppSettings>(() => loadSettings());
   const [currentTab, setCurrentTab] = useState<'scan' | 'history'>('scan');
+  const [syncNotice, setSyncNotice] = useState<{ message: string; url?: string } | null>(null);
 
   // Modals
   const [isNewSessionOpen, setIsNewSessionOpen] = useState(false);
@@ -112,9 +115,47 @@ export default function App() {
   };
 
   const handleCompleteSession = (sessionId: string) => {
+    const targetSession = sessions.find((s) => s.id === sessionId);
+    if (!targetSession) return;
+
+    const completedSession: HandoverSession = {
+      ...targetSession,
+      status: 'completed',
+      updatedAt: new Date().toISOString(),
+    };
+
     setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, status: 'completed' } : s))
+      prev.map((s) => (s.id === sessionId ? completedSession : s))
     );
+
+    // Auto-sync completed BAST to Google Drive in the background
+    getAccessToken().then((token) => {
+      if (token && completedSession.items.length > 0) {
+        uploadBastPdfToGoogleDrive(completedSession, token)
+          .then((res) => {
+            setSessions((prev) =>
+              prev.map((s) =>
+                s.id === sessionId
+                  ? {
+                      ...s,
+                      driveFileId: res.fileId,
+                      driveWebViewLink: res.webViewLink,
+                      driveSyncedAt: new Date().toISOString(),
+                    }
+                  : s
+              )
+            );
+            setSyncNotice({
+              message: `BAST ${completedSession.bastNumber} otomatis tersinkron ke Google Drive`,
+              url: res.webViewLink,
+            });
+            setTimeout(() => setSyncNotice(null), 6000);
+          })
+          .catch((err) => {
+            console.warn('Auto sync on complete session notice:', err);
+          });
+      }
+    });
   };
 
   const handleDeleteSession = (sessionId: string) => {
@@ -442,7 +483,37 @@ export default function App() {
           isOpen={Boolean(printSession)}
           onClose={() => setPrintSession(null)}
           session={printSession}
+          onUpdateSession={handleUpdateSession}
         />
+      )}
+
+      {/* Floating Auto-Sync Google Notification */}
+      {syncNotice && (
+        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 border border-emerald-500/80 text-white px-4 py-3 rounded-2xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2 duration-200 max-w-md">
+          <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-400">
+            <CheckCircle2 className="w-5 h-5" />
+          </div>
+          <div className="flex-1 text-xs">
+            <p className="font-bold text-slate-100">{syncNotice.message}</p>
+            {syncNotice.url && (
+              <a
+                href={syncNotice.url}
+                target="_blank"
+                rel="noreferrer"
+                className="text-amber-400 underline hover:text-amber-300 font-semibold mt-0.5 inline-block"
+              >
+                Buka File di Google Drive →
+              </a>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setSyncNotice(null)}
+            className="text-slate-400 hover:text-slate-200 text-xs p-1"
+          >
+            ✕
+          </button>
+        </div>
       )}
 
       <GuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
